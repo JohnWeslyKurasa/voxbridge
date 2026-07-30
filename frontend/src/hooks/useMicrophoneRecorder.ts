@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { extractSpeechFromMediaFile } from "@/utils/extractVideoSpeech";
 
 export type RecorderState = "idle" | "requesting" | "recording" | "paused" | "stopped" | "error";
 
@@ -144,13 +145,25 @@ export function useMicrophoneRecorder(): UseMicrophoneRecorderReturn {
       }
     };
 
+    const transcriptRef = { current: "" };
+
     // On recording stop — assemble blob and create URL
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       const mimeUsed = recorder.mimeType || "audio/webm";
       const blob = new Blob(audioChunksRef.current, { type: mimeUsed });
       const url  = URL.createObjectURL(blob);
       setAudioBlob(blob);
       setAudioUrl(url);
+
+      if (!transcriptRef.current) {
+        const fileObj = new File([blob], "voice_recording.webm", { type: mimeUsed });
+        const extracted = await extractSpeechFromMediaFile(fileObj);
+        if (extracted) {
+          setTranscriptText(extracted);
+          transcriptRef.current = extracted;
+        }
+      }
+
       setState("stopped");
       cleanup();
     };
@@ -163,14 +176,16 @@ export function useMicrophoneRecorder(): UseMicrophoneRecorderReturn {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
+        recognition.lang = "en-US";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         recognition.onresult = (event: any) => {
-          let current = "";
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            current += event.results[i][0].transcript;
+          let text = "";
+          for (let i = 0; i < event.results.length; i++) {
+            text += event.results[i][0].transcript;
           }
-          if (current.trim()) {
-            setTranscriptText(current.trim());
+          if (text.trim()) {
+            transcriptRef.current = text.trim();
+            setTranscriptText(text.trim());
           }
         };
         recognition.start();

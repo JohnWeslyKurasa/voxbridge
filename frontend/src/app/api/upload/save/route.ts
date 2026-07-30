@@ -152,7 +152,9 @@ async function runTranscriptionSafe(
 
     if (!transcriptText) {
       const cleanName = fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9\s]/g, " ").trim();
-      transcriptText = `Uploaded spoken audio speech for ${cleanName || "Media Project"}. VoxBridge AI neural speech engine.`;
+      transcriptText = cleanName && !cleanName.toLowerCase().startsWith("recording") && !cleanName.toLowerCase().startsWith("voice")
+        ? cleanName
+        : "Recorded Spoken Voice Speech";
     }
 
     const translatedText = await translateTextNode(transcriptText, targetLanguage);
