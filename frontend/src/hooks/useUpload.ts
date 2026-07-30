@@ -79,7 +79,7 @@ export function useUpload(options: UseUploadOptions = {}) {
   /**
    * Start files validation and upload flow
    */
-  const startUpload = async (selectedFile: File, targetLanguage?: string, inputType?: string) => {
+  const startUpload = async (selectedFile: File, targetLanguage?: string, inputType?: string, transcriptText?: string) => {
     if (!validateFile(selectedFile)) return;
 
     setFile(selectedFile);
@@ -134,6 +134,7 @@ export function useUpload(options: UseUploadOptions = {}) {
             duration: durationToSave,
             targetLanguage,
             inputType,
+            transcriptText,
           });
 
           setStatus("success");

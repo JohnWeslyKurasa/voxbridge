@@ -7,7 +7,7 @@ import { useMicrophoneRecorder } from "@/hooks/useMicrophoneRecorder";
 
 export interface MicrophoneRecorderProps {
   /** Called when recording is finalised and user is ready to upload the blob */
-  onRecordingReady: (blob: Blob, filename: string) => void;
+  onRecordingReady: (blob: Blob, filename: string, transcriptText?: string) => void;
 }
 
 /**
@@ -34,6 +34,7 @@ export default function MicrophoneRecorder({ onRecordingReady }: MicrophoneRecor
     audioUrl,
     durationSeconds,
     error,
+    transcriptText,
     startRecording,
     pauseRecording,
     resumeRecording,
@@ -104,7 +105,7 @@ export default function MicrophoneRecorder({ onRecordingReady }: MicrophoneRecor
   const handleUseRecording = () => {
     if (audioBlob) {
       const filename = `voice_recording_${Date.now()}.webm`;
-      onRecordingReady(audioBlob, filename);
+      onRecordingReady(audioBlob, filename, transcriptText);
     }
   };
 

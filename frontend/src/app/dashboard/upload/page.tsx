@@ -71,9 +71,9 @@ export default function UploadPage() {
   });
 
   const handleRecordingReady = useCallback(
-    (blob: Blob, filename: string) => {
+    (blob: Blob, filename: string, transcriptText?: string) => {
       const file = new File([blob], filename, { type: blob.type });
-      startUpload(file, targetLanguage, "microphone");
+      startUpload(file, targetLanguage, "microphone", transcriptText);
     },
     [startUpload, targetLanguage]
   );

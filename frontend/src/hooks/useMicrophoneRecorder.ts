@@ -10,6 +10,7 @@ export interface UseMicrophoneRecorderReturn {
   audioUrl: string | null;
   durationSeconds: number;
   error: string | null;
+  transcriptText: string;
   startRecording: () => Promise<void>;
   pauseRecording: () => void;
   resumeRecording: () => void;
@@ -46,12 +47,15 @@ export function useMicrophoneRecorder(): UseMicrophoneRecorderReturn {
   const [durationSeconds, setDuration] = useState(0);
   const [error, setError]           = useState<string | null>(null);
   const [analyserNode, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [transcriptText, setTranscriptText] = useState("");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef   = useRef<Blob[]>([]);
   const streamRef        = useRef<MediaStream | null>(null);
   const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef      = useRef<AudioContext | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef   = useRef<any>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -64,6 +68,10 @@ export function useMicrophoneRecorder(): UseMicrophoneRecorderReturn {
   /** Stop all media tracks and clear timer */
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      recognitionRef.current = null;
+    }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     audioCtxRef.current?.close();
     streamRef.current = null;
@@ -87,6 +95,7 @@ export function useMicrophoneRecorder(): UseMicrophoneRecorderReturn {
     setAudioBlob(null);
     setAudioUrl(null);
     setDuration(0);
+    setTranscriptText("");
     audioChunksRef.current = [];
 
     setState("requesting");
@@ -145,6 +154,31 @@ export function useMicrophoneRecorder(): UseMicrophoneRecorderReturn {
       setState("stopped");
       cleanup();
     };
+
+    // Start Web Speech Recognition engine if supported by browser
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        recognition.onresult = (event: any) => {
+          let current = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            current += event.results[i][0].transcript;
+          }
+          if (current.trim()) {
+            setTranscriptText(current.trim());
+          }
+        };
+        recognition.start();
+        recognitionRef.current = recognition;
+      } catch (e) {
+        console.warn("Speech recognition warning:", e);
+      }
+    }
 
     // Start recording and timer
     recorder.start(100); // Collect data every 100ms
@@ -205,6 +239,7 @@ export function useMicrophoneRecorder(): UseMicrophoneRecorderReturn {
     audioUrl,
     durationSeconds,
     error,
+    transcriptText,
     startRecording,
     pauseRecording,
     resumeRecording,

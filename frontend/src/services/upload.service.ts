@@ -140,6 +140,7 @@ export const uploadService = {
     duration: number;
     targetLanguage?: string;
     inputType?: string;
+    transcriptText?: string;
   }) {
     const res = await fetch("/api/upload/save", {
       method: "POST",

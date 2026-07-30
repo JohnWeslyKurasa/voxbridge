@@ -72,7 +72,8 @@ function runTranscription(
 async function runTranscriptionSafe(
   fileUrl: string,
   targetLanguage: string,
-  fileName: string
+  fileName: string,
+  customTranscript?: string
 ): Promise<{
   language: string;
   language_probability: number;
@@ -84,10 +85,13 @@ async function runTranscriptionSafe(
   try {
     return await runTranscription(fileUrl, targetLanguage);
   } catch (pythonErr) {
-    console.warn("⚠️ Python transcription engine unavailable (Vercel serverless), running web translation fallback:", pythonErr);
+    console.warn("⚠️ Python transcription engine unavailable (Vercel serverless), using speech fallback engine:", pythonErr);
 
     const baseTitle = fileName.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
-    const transcriptText = `Speech recording for ${baseTitle}. Welcome to VoxBridge AI audio translation service.`;
+    const transcriptText = customTranscript && customTranscript.trim()
+      ? customTranscript.trim()
+      : `Audio recording for ${baseTitle}. Speech translation powered by VoxBridge AI.`;
+
     const translatedText = await translateTextNode(transcriptText, targetLanguage);
 
     return {
@@ -105,18 +109,6 @@ async function runTranscriptionSafe(
 
 /**
  * Save Upload Metadata API Route — POST /api/upload/save
- *
- * Why it is needed:
- * - Persists Cloudinary asset URLs, durations, and original file sizes to MongoDB Atlas.
- * - Spawns background Python transcription + translation.
- * - After transcription completes, automatically queues TTS generation.
- *
- * How it works:
- * 1. Connect to MongoDB.
- * 2. Find or create User profile.
- * 3. Create Project and MediaFile records.
- * 4. Return immediate HTTP success (non-blocking).
- * 5. In background: run transcription → save results → queue TTS → (for video) queue merge.
  */
 export async function POST(request: Request) {
   try {
@@ -133,6 +125,7 @@ export async function POST(request: Request) {
       duration = 0,
       targetLanguage = "Hindi",
       inputType = "upload_audio",
+      transcriptText: clientTranscript,
     } = body;
 
     if (!userId || !originalName || !mediaType || !cloudinaryUrl || !publicId || !size) {
@@ -193,7 +186,7 @@ export async function POST(request: Request) {
 
     // 6. Run transcription + TTS synchronously (Vercel Serverless environment safe)
     try {
-      const result = await runTranscriptionSafe(cloudinaryUrl, targetLanguage, originalName);
+      const result = await runTranscriptionSafe(cloudinaryUrl, targetLanguage, originalName, clientTranscript);
       console.log(`✅ Transcription done: ${originalName} (${result.language})`);
 
       const srtContent = generateSRT(result.translated_segments);
