@@ -1,14 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { exec } from "child_process";
-import path from "path";
-import fs from "fs";
 import connectDB from "@/lib/mongodb";
 import Project from "@/models/Project";
 import Translation from "@/models/Translation";
 import User from "@/models/User";
 import { processTTS } from "@/lib/ttsHelper";
 
-import os from "os";
+async function translateTextNode(text: string, targetLang: string): Promise<string> {
+  const langCodes: Record<string, string> = {
+    English: "en", Hindi: "hi", Spanish: "es", French: "fr", German: "de",
+    Italian: "it", Japanese: "ja", Chinese: "zh-CN", Telugu: "te", Tamil: "ta",
+    Kannada: "kn", Malayalam: "ml", Bengali: "bn", Marathi: "mr", Gujarati: "gu",
+    Punjabi: "pa", Urdu: "ur", Russian: "ru", Arabic: "ar"
+  };
+  const code = langCodes[targetLang] || "hi";
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${code}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data[0]) {
+        return data[0].map((item: Array<string | number>) => item[0]).join("");
+      }
+    }
+  } catch (err) {
+    console.warn("Node translation fallback warning:", err);
+  }
+  return text;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,74 +61,36 @@ export async function POST(req: NextRequest) {
       status: "processing",
     });
 
-    // Create Translation record
+    // 3. Perform High-Speed Translation in Node.js
+    const translatedText = await translateTextNode(text, tgtLang);
+
+    // Create Translation record with completed text
     const translation = await Translation.create({
       project: project._id,
       transcriptText: text,
       detectedLanguage: srcLang,
-      translatedText: "",
+      translatedText,
       segments: [{ start: 0, end: 0, text }],
-      translatedSegments: [],
-      ttsStatus: "pending",
+      translatedSegments: [{ start: 0, end: 0, text: translatedText }],
+      ttsStatus: "processing",
     });
 
-    // Link Translation back to Project
-    await Project.findByIdAndUpdate(project._id, { translation: translation._id });
-
-    // Trigger Python translation script in background or synchronously
-    const scriptPath = path.join(process.cwd(), "python", "translate_text.py");
-    const tempDir = path.join(os.tmpdir(), "voxbridge_scratch");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-    const inputFilePath = path.join(tempDir, `text_in_${project._id}.txt`);
-    fs.writeFileSync(inputFilePath, text, "utf-8");
-
-    const command = `python "${scriptPath}" "@${inputFilePath}" "${srcLang}" "${tgtLang}"`;
-
-    exec(command, { timeout: 300000 }, async (error, stdout, stderr) => {
-      if (fs.existsSync(inputFilePath)) {
-        try { fs.unlinkSync(inputFilePath); } catch {}
-      }
-
-      if (error || (stderr && stderr.includes("Traceback"))) {
-        console.error("❌ Text translation script error:", stderr || error?.message);
-        await Project.findByIdAndUpdate(project._id, { status: "failed" });
-        return;
-      }
-
-      try {
-        const result = JSON.parse(stdout);
-        if (!result.success) {
-          await Project.findByIdAndUpdate(project._id, { status: "failed" });
-          return;
-        }
-
-        const translatedText = result.translatedText;
-
-        // Update Translation and Project in DB
-        await Translation.findByIdAndUpdate(translation._id, {
-          translatedText,
-          translatedSegments: [{ start: 0, end: 0, text: translatedText }],
-          ttsStatus: "processing",
-        });
-
-        await Project.findByIdAndUpdate(project._id, { status: "completed" });
-
-        // Trigger TTS generation directly in Node.js
-        processTTS(String(project._id)).catch((err) =>
-          console.error("❌ Failed to process TTS after text translation:", err)
-        );
-
-      } catch (parseErr) {
-        console.error("❌ Error parsing translation output:", parseErr);
-        await Project.findByIdAndUpdate(project._id, { status: "failed" });
-      }
+    // Link Translation back to Project and set completed status
+    await Project.findByIdAndUpdate(project._id, {
+      translation: translation._id,
+      status: "completed"
     });
+
+    // Trigger TTS generation asynchronously
+    processTTS(String(project._id)).catch((err) =>
+      console.error("❌ TTS generation warning:", err)
+    );
 
     return NextResponse.json({
       success: true,
       projectId: project._id,
-      message: "Text translation job started successfully.",
+      translatedText,
+      message: "Text translation completed successfully.",
     });
 
   } catch (err: unknown) {

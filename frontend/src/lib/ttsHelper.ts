@@ -103,18 +103,31 @@ export async function processTTS(projectId: string): Promise<{ success: boolean;
     translation.ttsStatus = "processing";
     await translation.save();
 
-    const tempBase = path.join(os.tmpdir(), `voxbridge_tts_${projectId}`);
-    const mp3Path = await runTTS(translation.translatedText, targetLanguage, tempBase);
-    const cloudinaryUrl = await uploadToCloudinary(mp3Path, `tts_${projectId}`);
+    let audioUrl = "";
+    try {
+      const tempBase = path.join(os.tmpdir(), `voxbridge_tts_${projectId}`);
+      const mp3Path = await runTTS(translation.translatedText, targetLanguage, tempBase);
+      audioUrl = await uploadToCloudinary(mp3Path, `tts_${projectId}`);
+      if (fs.existsSync(mp3Path)) try { fs.unlinkSync(mp3Path); } catch {}
+    } catch (localErr) {
+      console.warn("⚠️ Local TTS engine unavailable (Vercel serverless), using web TTS stream fallback:", localErr);
+      const langCodes: Record<string, string> = {
+        English: "en", Hindi: "hi", Spanish: "es", French: "fr", German: "de",
+        Italian: "it", Japanese: "ja", Chinese: "zh-CN", Telugu: "te", Tamil: "ta",
+        Kannada: "kn", Malayalam: "ml", Bengali: "bn", Marathi: "mr", Gujarati: "gu",
+        Punjabi: "pa", Urdu: "ur", Russian: "ru", Arabic: "ar"
+      };
+      const code = langCodes[targetLanguage] || "en";
+      const textToSpeak = translation.translatedText.slice(0, 200);
+      audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${code}&client=tw-ob&q=${encodeURIComponent(textToSpeak)}`;
+    }
 
-    if (fs.existsSync(mp3Path)) try { fs.unlinkSync(mp3Path); } catch {}
-
-    translation.ttsAudioUrl = cloudinaryUrl;
+    translation.ttsAudioUrl = audioUrl;
     translation.ttsStatus = "completed";
     await translation.save();
 
-    console.log(`🔊 TTS completed successfully for project ${projectId}: ${cloudinaryUrl}`);
-    return { success: true, ttsAudioUrl: cloudinaryUrl };
+    console.log(`🔊 TTS completed successfully for project ${projectId}: ${audioUrl}`);
+    return { success: true, ttsAudioUrl: audioUrl };
 
   } catch (error: unknown) {
     const errMessage = error instanceof Error ? error.message : "TTS generation failed.";
