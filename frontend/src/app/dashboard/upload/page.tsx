@@ -7,6 +7,7 @@ import FilePreview from "@/components/upload/FilePreview";
 import InputModeSelector, { InputMode } from "@/components/upload/InputModeSelector";
 import MicrophoneRecorder from "@/components/upload/MicrophoneRecorder";
 import TextInputWorkspace from "@/components/upload/TextInputWorkspace";
+import { extractSpeechFromMediaFile } from "@/utils/extractVideoSpeech";
 import LanguageSearchSelector from "@/components/language/LanguageSearchSelector";
 import { ArrowLeft, Info, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -139,7 +140,10 @@ export default function UploadPage() {
           {/* Audio / Video Upload Mode */}
           {inputMode !== "microphone" && inputMode !== "text" && !file && (
             <DragDropZone
-              onFileSelected={(selectedFile) => startUpload(selectedFile, targetLanguage, inputMode)}
+              onFileSelected={async (selectedFile) => {
+                const speechText = await extractSpeechFromMediaFile(selectedFile);
+                startUpload(selectedFile, targetLanguage, inputMode, speechText);
+              }}
               allowedExtensions={allowedExtensions}
             />
           )}
