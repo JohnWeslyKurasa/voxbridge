@@ -49,6 +49,8 @@ const INPUT_TYPE_ICONS: Record<string, ComponentType<{ className?: string }>> = 
 /**
  * ProjectsPage — /dashboard/projects (Bright Luxury Theme)
  */
+export const dynamic = "force-dynamic";
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loading, setLoading] = useState(true);

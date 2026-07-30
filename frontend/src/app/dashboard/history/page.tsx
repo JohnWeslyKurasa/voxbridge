@@ -37,6 +37,8 @@ interface ProjectItem {
 /**
  * HistoryPage — /dashboard/history (Bright Luxury Theme)
  */
+export const dynamic = "force-dynamic";
+
 export default function HistoryPage() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loading, setLoading] = useState(true);

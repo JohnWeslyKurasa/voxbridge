@@ -31,6 +31,8 @@ const LANGUAGES = [
 /**
  * Upload Page — /dashboard/upload (Bright Luxury Theme)
  */
+export const dynamic = "force-dynamic";
+
 export default function UploadPage() {
   const [inputMode, setInputMode]       = useState<InputMode>("upload_audio");
   const [targetLanguage, setTargetLanguage] = useState("Hindi");
