@@ -20,7 +20,6 @@ import {
 import { motion } from "framer-motion";
 import AudioPlayer from "@/components/player/AudioPlayer";
 import TranscriptViewer from "@/components/player/TranscriptViewer";
-import AIAvatarPresenterPlayer from "@/components/avatar/AIAvatarPresenterPlayer";
 import TranslatedVideoDubPlayer from "@/components/player/TranslatedVideoDubPlayer";
 
 /** Type-safe project data structure matching MongoDB population */
@@ -380,76 +379,66 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* ── Section 4: Translated Video (AI Presenter Avatar / Merged Video) ─ */}
-          <div className="space-y-6">
-            {isVideoProject ? (
-              <div className="bg-white rounded-[20px] border border-[#F2E8DC] shadow-soft overflow-hidden">
-                <div className="px-6 py-4 border-b border-[#F2E8DC] flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-xl bg-[#FFF8F0] border border-[#F2E8DC] flex items-center justify-center">
-                      <Video className="h-4 w-4 text-[#7B1E3A]" />
-                    </div>
+          {/* ── Section 4: Merged Video (Only for Video-to-Video Translation) ─ */}
+          {isVideoProject && (
+            <div className="bg-white rounded-[20px] border border-[#F2E8DC] shadow-soft overflow-hidden">
+              <div className="px-6 py-4 border-b border-[#F2E8DC] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-xl bg-[#FFF8F0] border border-[#F2E8DC] flex items-center justify-center">
+                    <Video className="h-4 w-4 text-[#7B1E3A]" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-[#2B1B1B]">Translated Video</h2>
+                    <p className="text-[10px] font-semibold text-[#7A6B6B]">Original video + {project.targetLanguage} audio track</p>
+                  </div>
+                </div>
+                <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
+                  translation.videoMergeStatus === "completed" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                  translation.videoMergeStatus === "failed"    ? "bg-rose-50 text-rose-700 border border-rose-200" :
+                  translation.videoMergeStatus === "skipped"   ? "bg-[#FFF8F0] text-[#7A6B6B]" :
+                  "bg-[#FFF8F0] text-[#7B1E3A] border border-[#D4AF7A]/40"
+                }`}>
+                  {translation.videoMergeStatus}
+                </span>
+              </div>
+              <div className="p-6">
+                {isVideoReady ? (
+                  <TranslatedVideoDubPlayer
+                    videoSrc={videoPlaybackUrl}
+                    audioSrc={translation.ttsAudioUrl}
+                    targetLanguage={project.targetLanguage}
+                    projectName={project.name}
+                  />
+                ) : translation.videoMergeStatus === "processing" ? (
+                  <div className="flex items-center gap-3 rounded-2xl bg-[#FFF8F0] border border-[#D4AF7A]/40 p-4">
+                    <Loader2 className="h-5 w-5 text-[#7B1E3A] animate-spin shrink-0" />
                     <div>
-                      <h2 className="text-sm font-bold text-[#2B1B1B]">Translated Video</h2>
-                      <p className="text-[10px] font-semibold text-[#7A6B6B]">Original video + {project.targetLanguage} audio track</p>
+                      <p className="text-sm font-bold text-[#7B1E3A]">Merging video...</p>
+                      <p className="text-xs font-semibold text-[#7A6B6B]">FFmpeg is combining your video with the translated audio track.</p>
                     </div>
                   </div>
-                  <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
-                    translation.videoMergeStatus === "completed" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                    translation.videoMergeStatus === "failed"    ? "bg-rose-50 text-rose-700 border border-rose-200" :
-                    translation.videoMergeStatus === "skipped"   ? "bg-[#FFF8F0] text-[#7A6B6B]" :
-                    "bg-[#FFF8F0] text-[#7B1E3A] border border-[#D4AF7A]/40"
-                  }`}>
-                    {translation.videoMergeStatus}
-                  </span>
-                </div>
-                <div className="p-6">
-                  {isVideoReady ? (
-                    <TranslatedVideoDubPlayer
-                      videoSrc={videoPlaybackUrl}
-                      audioSrc={translation.ttsAudioUrl}
-                      targetLanguage={project.targetLanguage}
-                      projectName={project.name}
-                    />
-                  ) : translation.videoMergeStatus === "processing" ? (
-                    <div className="flex items-center gap-3 rounded-2xl bg-[#FFF8F0] border border-[#D4AF7A]/40 p-4">
-                      <Loader2 className="h-5 w-5 text-[#7B1E3A] animate-spin shrink-0" />
-                      <div>
-                        <p className="text-sm font-bold text-[#7B1E3A]">Merging video...</p>
-                        <p className="text-xs font-semibold text-[#7A6B6B]">FFmpeg is combining your video with the translated audio track.</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-xs font-semibold text-[#7A6B6B]">
-                        {isTTSReady
-                          ? "TTS audio is ready. Click below to merge it with your original video."
-                          : "Video merge will be available after translated audio is generated."}
-                      </p>
-                      {isTTSReady && (
-                        <button
-                          onClick={triggerVideoMerge}
-                          disabled={triggeringMerge}
-                          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7B1E3A] to-[#A23B5A] px-5 py-2.5 text-xs font-bold text-white hover:opacity-95 transition-all disabled:opacity-50 cursor-pointer border border-[#D4AF7A]/30"
-                        >
-                          {triggeringMerge ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5 text-[#D4AF7A]" />}
-                          Generate Translated Video
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-[#7A6B6B]">
+                      {isTTSReady
+                        ? "TTS audio is ready. Click below to merge it with your original video."
+                        : "Video merge will be available after translated audio is generated."}
+                    </p>
+                    {isTTSReady && (
+                      <button
+                        onClick={triggerVideoMerge}
+                        disabled={triggeringMerge}
+                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7B1E3A] to-[#A23B5A] px-5 py-2.5 text-xs font-bold text-white hover:opacity-95 transition-all disabled:opacity-50 cursor-pointer border border-[#D4AF7A]/30"
+                      >
+                        {triggeringMerge ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Video className="h-3.5 w-3.5 text-[#D4AF7A]" />}
+                        Generate Translated Video
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            ) : (
-              isTTSReady && (
-                <AIAvatarPresenterPlayer
-                  audioSrc={translation.ttsAudioUrl}
-                  targetLanguage={project.targetLanguage}
-                  projectName={project.name}
-                />
-              )
-            )}
-          </div>
+            </div>
+          )}
 
           {/* ── Section 5: Download Center ─────────────────────────────────────── */}
           <div className="bg-white rounded-[20px] border border-[#F2E8DC] shadow-soft p-6">

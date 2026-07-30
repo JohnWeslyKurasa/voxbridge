@@ -78,9 +78,14 @@ async function transcribeAudioUrlCloud(fileUrl: string): Promise<string | null> 
     if (!audioRes.ok) return null;
     const audioBuffer = await audioRes.arrayBuffer();
 
+    // Determine extension from URL (e.g. mp4, webm, mov, mp3, wav)
+    const extMatch = fileUrl.match(/\.([a-zA-Z0-9]+)(\?|$)/);
+    const ext = extMatch ? extMatch[1].toLowerCase() : "mp4";
+    const mimeType = ext === "mp3" ? "audio/mp3" : ext === "wav" ? "audio/wav" : `video/${ext}`;
+
     const formData = new FormData();
-    const blob = new Blob([audioBuffer], { type: "audio/mp3" });
-    formData.append("file", blob, "audio.mp3");
+    const blob = new Blob([audioBuffer], { type: mimeType });
+    formData.append("file", blob, `input_media.${ext}`);
     formData.append("model", process.env.GROQ_API_KEY ? "whisper-large-v3" : "whisper-1");
 
     const endpoint = process.env.GROQ_API_KEY
@@ -131,8 +136,8 @@ async function runTranscriptionSafe(
     }
 
     if (!transcriptText) {
-      const baseTitle = fileName.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
-      transcriptText = `Audio recording for ${baseTitle}. Speech translation powered by VoxBridge AI.`;
+      const cleanName = fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9\s]/g, " ").trim();
+      transcriptText = `Speech media content for ${cleanName || "Uploaded Media"}. VoxBridge AI translation system.`;
     }
 
     const translatedText = await translateTextNode(transcriptText, targetLanguage);
