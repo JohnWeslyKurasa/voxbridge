@@ -21,6 +21,7 @@ import { motion } from "framer-motion";
 import AudioPlayer from "@/components/player/AudioPlayer";
 import TranscriptViewer from "@/components/player/TranscriptViewer";
 import AIAvatarPresenterPlayer from "@/components/avatar/AIAvatarPresenterPlayer";
+import TranslatedVideoDubPlayer from "@/components/player/TranslatedVideoDubPlayer";
 
 /** Type-safe project data structure matching MongoDB population */
 interface ProjectDetail {
@@ -404,23 +405,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 </div>
                 <div className="p-6">
                   {isVideoReady ? (
-                    <div className="space-y-3">
-                      <video
-                        src={videoPlaybackUrl}
-                        controls
-                        className="w-full rounded-2xl border border-[#F2E8DC] max-h-64 bg-black"
-                      />
-                      <a
-                        href={videoPlaybackUrl}
-                        download={`voxbridge_translated_${project.targetLanguage.toLowerCase()}.mp4`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7B1E3A] to-[#A23B5A] px-4 py-2 text-xs font-bold text-white hover:opacity-95 transition-colors border border-[#D4AF7A]/30"
-                      >
-                        <Download className="h-3.5 w-3.5 text-[#D4AF7A]" />
-                        Download Translated Video (.mp4)
-                      </a>
-                    </div>
+                    <TranslatedVideoDubPlayer
+                      videoSrc={videoPlaybackUrl}
+                      audioSrc={translation.ttsAudioUrl}
+                      targetLanguage={project.targetLanguage}
+                      projectName={project.name}
+                    />
                   ) : translation.videoMergeStatus === "processing" ? (
                     <div className="flex items-center gap-3 rounded-2xl bg-[#FFF8F0] border border-[#D4AF7A]/40 p-4">
                       <Loader2 className="h-5 w-5 text-[#7B1E3A] animate-spin shrink-0" />
