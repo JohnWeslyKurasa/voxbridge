@@ -59,6 +59,8 @@ const INPUT_TYPE_LABELS: Record<string, { label: string }> = {
 /**
  * Project Detail Page — /dashboard/project/[id] (Bright Luxury Theme)
  */
+export const dynamic = "force-dynamic";
+
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
 

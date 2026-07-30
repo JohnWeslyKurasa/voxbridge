@@ -13,6 +13,8 @@ import {
 /**
  * SettingsPage — /dashboard/settings (Bright Luxury Theme)
  */
+export const dynamic = "force-dynamic";
+
 export default function SettingsPage() {
   const [targetLang, setTargetLang] = useState("Hindi");
   const [autoTTS, setAutoTTS] = useState(true);

@@ -33,6 +33,8 @@ const FAQS = [
 /**
  * HelpPage — /dashboard/help (Bright Luxury Theme)
  */
+export const dynamic = "force-dynamic";
+
 export default function HelpPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 

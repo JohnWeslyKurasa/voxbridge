@@ -6,6 +6,8 @@ import { User, Shield, CreditCard, Sparkles, LogOut, CheckCircle2 } from "lucide
 /**
  * ProfilePage — /dashboard/profile (Bright Luxury Theme)
  */
+export const dynamic = "force-dynamic";
+
 export default function ProfilePage() {
   const { user } = useUser();
 
