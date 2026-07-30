@@ -8,6 +8,8 @@ import Translation from "@/models/Translation";
 import User from "@/models/User";
 import { processTTS } from "@/lib/ttsHelper";
 
+import os from "os";
+
 export async function POST(req: NextRequest) {
   try {
     const { text, sourceLanguage, targetLanguage, userId } = await req.json();
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     // Trigger Python translation script in background or synchronously
     const scriptPath = path.join(process.cwd(), "python", "translate_text.py");
-    const tempDir = path.join(process.cwd(), "scratch");
+    const tempDir = path.join(os.tmpdir(), "voxbridge_scratch");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
     const inputFilePath = path.join(tempDir, `text_in_${project._id}.txt`);
