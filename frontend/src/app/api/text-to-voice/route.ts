@@ -81,9 +81,9 @@ export async function POST(req: NextRequest) {
       status: "completed"
     });
 
-    // Trigger TTS generation asynchronously
-    processTTS(String(project._id)).catch((err) =>
-      console.error("❌ TTS generation warning:", err)
+    // Await TTS generation synchronously for Vercel Serverless environment
+    await processTTS(String(project._id)).catch((err) =>
+      console.warn("⚠️ TTS generation warning:", err)
     );
 
     return NextResponse.json({

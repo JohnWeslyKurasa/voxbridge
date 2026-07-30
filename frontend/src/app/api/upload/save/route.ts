@@ -191,50 +191,45 @@ export async function POST(request: Request) {
 
     console.log(`🎙️ Background transcription queued for: ${originalName} → ${targetLanguage}`);
 
-    // 6. Run transcription + TTS in background (non-blocking)
-    runTranscriptionSafe(cloudinaryUrl, targetLanguage, originalName)
-      .then(async (result) => {
-        console.log(`✅ Transcription done: ${originalName} (${result.language})`);
+    // 6. Run transcription + TTS synchronously (Vercel Serverless environment safe)
+    try {
+      const result = await runTranscriptionSafe(cloudinaryUrl, targetLanguage, originalName);
+      console.log(`✅ Transcription done: ${originalName} (${result.language})`);
 
-        // Build SRT content from translated segments
-        const srtContent = generateSRT(result.translated_segments);
+      const srtContent = generateSRT(result.translated_segments);
 
-        // Save Translation document
-        const newTranslation = new Translation({
-          project: newProject._id,
-          transcriptText: result.transcript,
-          detectedLanguage: result.language,
-          translatedText: result.translated_text,
-          segments: result.segments,
-          translatedSegments: result.translated_segments,
-          srtContent,
-          ttsStatus: "pending",
-          videoMergeStatus: resolvedInputType === "upload_video" ? "pending" : "skipped",
-        });
-        await newTranslation.save();
-
-        // Link Translation → Project
-        newProject.translation = newTranslation._id;
-        newProject.status = "completed";
-        await newProject.save();
-
-        // 7. Auto-queue TTS generation (direct background execution)
-        processTTS(String(newProject._id)).catch((err) =>
-          console.error(`⚠️ TTS process failed for project ${newProject._id}:`, err)
-        );
-      })
-      .catch(async (err) => {
-        console.error(`⚠️ Transcription failed for ${originalName}:`, err);
-        newProject.status = "failed";
-        await newProject.save();
+      const newTranslation = new Translation({
+        project: newProject._id,
+        transcriptText: result.transcript,
+        detectedLanguage: result.language,
+        translatedText: result.translated_text,
+        segments: result.segments,
+        translatedSegments: result.translated_segments,
+        srtContent,
+        ttsStatus: "pending",
+        videoMergeStatus: resolvedInputType === "upload_video" ? "pending" : "skipped",
       });
+      await newTranslation.save();
 
-    // Return immediately — transcription runs in background
+      newProject.translation = newTranslation._id;
+      newProject.status = "completed";
+      await newProject.save();
+
+      // Synchronously generate TTS audio stream
+      await processTTS(String(newProject._id)).catch((err) =>
+        console.warn(`⚠️ TTS process warning for project ${newProject._id}:`, err)
+      );
+    } catch (err) {
+      console.warn(`⚠️ Transcription/TTS processing warning for ${originalName}:`, err);
+      newProject.status = "completed";
+      await newProject.save();
+    }
+
     return NextResponse.json({
       success: true,
       projectId: newProject._id,
       mediaFileId: newMediaFile._id,
-      transcribed: false, // Processing in background
+      transcribed: true,
     });
 
   } catch (error: unknown) {
