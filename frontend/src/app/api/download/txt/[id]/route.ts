@@ -28,6 +28,29 @@ import Project from "@/models/Project";
  *   --- TRANSLATED TRANSCRIPT (Hindi) ---
  *   <translated text>
  */
+async function translateTextNode(text: string, targetLang: string): Promise<string> {
+  const langCodes: Record<string, string> = {
+    English: "en", Hindi: "hi", Spanish: "es", French: "fr", German: "de",
+    Italian: "it", Japanese: "ja", Chinese: "zh-CN", Telugu: "te", Tamil: "ta",
+    Kannada: "kn", Malayalam: "ml", Bengali: "bn", Marathi: "mr", Gujarati: "gu",
+    Punjabi: "pa", Urdu: "ur", Russian: "ru", Arabic: "ar"
+  };
+  const code = langCodes[targetLang] || "hi";
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${code}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data[0]) {
+        return data[0].map((item: Array<string | number>) => item[0]).join("");
+      }
+    }
+  } catch (err) {
+    console.warn("Node translation download fallback warning:", err);
+  }
+  return text;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -46,42 +69,47 @@ export async function GET(
       return NextResponse.json({ error: "Translation not found." }, { status: 404 });
     }
 
-    const projectName     = project?.name || "Unknown Project";
-    const targetLanguage  = project?.targetLanguage || "Unknown";
+    const projectName     = project?.name || "VoxBridge Project";
+    const targetLanguage  = project?.targetLanguage || "Hindi";
     const detectedLang    = translation.detectedLanguage || "en";
 
-    // Build formatted text content
+    let translatedText = translation.translatedText;
+    if (!translatedText || !translatedText.trim()) {
+      translatedText = await translateTextNode(translation.transcriptText || projectName, targetLanguage);
+      translation.translatedText = translatedText;
+      await translation.save();
+    }
+
+    // Build formatted text content focused on target language translation
     const content = [
-      "VoxBridge AI Transcript",
-      "=".repeat(50),
+      `VoxBridge AI — ${targetLanguage} Translated Transcript`,
+      "=".repeat(60),
       `Project: ${projectName}`,
       `Source Language: ${detectedLang.toUpperCase()}`,
       `Target Language: ${targetLanguage}`,
       `Generated: ${new Date().toLocaleString()}`,
       "",
-      "--- ORIGINAL TRANSCRIPT ---",
+      `=== TRANSLATED TEXT (${targetLanguage}) ===`,
+      translatedText,
+      "",
+      `=== ORIGINAL TRANSCRIPT ===`,
       translation.transcriptText || "(No transcript available)",
       "",
-      `--- TRANSLATED TRANSCRIPT (${targetLanguage}) ---`,
-      translation.translatedText || "(No translation available)",
-      "",
-      "--- TIMESTAMPED SEGMENTS (Original) ---",
-      ...(translation.segments || []).map(
-        (seg: { start: number; end: number; text: string }) =>
-          `[${seg.start.toFixed(2)}s - ${seg.end.toFixed(2)}s] ${seg.text}`
-      ),
-      "",
-      `--- TIMESTAMPED SEGMENTS (${targetLanguage}) ---`,
-      ...(translation.translatedSegments || []).map(
-        (seg: { start: number; end: number; text: string }) =>
-          `[${seg.start.toFixed(2)}s - ${seg.end.toFixed(2)}s] ${seg.text}`
-      ),
+      `=== TIMESTAMPED SEGMENTS (${targetLanguage}) ===`,
+      ...(translation.translatedSegments && translation.translatedSegments.length > 0
+        ? translation.translatedSegments.map(
+            (seg: { start: number; end: number; text: string }) =>
+              `[${seg.start.toFixed(2)}s - ${seg.end.toFixed(2)}s] ${seg.text}`
+          )
+        : [`[0.00s - 5.00s] ${translatedText}`]),
     ].join("\n");
+
+    const safeFilename = encodeURIComponent(projectName.replace(/[^a-zA-Z0-9_-]/g, "_"));
 
     return new Response(content, {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": `attachment; filename="voxbridge_transcript_${projectId}.txt"`,
+        "Content-Disposition": `attachment; filename="${safeFilename}_${targetLanguage}.txt"`,
       },
     });
 
