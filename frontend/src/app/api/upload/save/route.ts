@@ -69,6 +69,40 @@ function runTranscription(
   });
 }
 
+async function transcribeAudioUrlCloud(fileUrl: string): Promise<string | null> {
+  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const audioRes = await fetch(fileUrl);
+    if (!audioRes.ok) return null;
+    const audioBuffer = await audioRes.arrayBuffer();
+
+    const formData = new FormData();
+    const blob = new Blob([audioBuffer], { type: "audio/mp3" });
+    formData.append("file", blob, "audio.mp3");
+    formData.append("model", process.env.GROQ_API_KEY ? "whisper-large-v3" : "whisper-1");
+
+    const endpoint = process.env.GROQ_API_KEY
+      ? "https://api.groq.com/openai/v1/audio/transcriptions"
+      : "https://api.openai.com/v1/audio/transcriptions";
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData,
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.text || null;
+    }
+  } catch (err) {
+    console.warn("Cloud Whisper API transcription warning:", err);
+  }
+  return null;
+}
+
 async function runTranscriptionSafe(
   fileUrl: string,
   targetLanguage: string,
@@ -85,12 +119,21 @@ async function runTranscriptionSafe(
   try {
     return await runTranscription(fileUrl, targetLanguage);
   } catch (pythonErr) {
-    console.warn("⚠️ Python transcription engine unavailable (Vercel serverless), using speech fallback engine:", pythonErr);
+    console.warn("⚠️ Python transcription engine unavailable (Vercel serverless), running cloud speech fallback:", pythonErr);
 
-    const baseTitle = fileName.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
-    const transcriptText = customTranscript && customTranscript.trim()
-      ? customTranscript.trim()
-      : `Audio recording for ${baseTitle}. Speech translation powered by VoxBridge AI.`;
+    let transcriptText = customTranscript && customTranscript.trim() ? customTranscript.trim() : "";
+
+    if (!transcriptText) {
+      const cloudTranscript = await transcribeAudioUrlCloud(fileUrl);
+      if (cloudTranscript) {
+        transcriptText = cloudTranscript;
+      }
+    }
+
+    if (!transcriptText) {
+      const baseTitle = fileName.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+      transcriptText = `Audio recording for ${baseTitle}. Speech translation powered by VoxBridge AI.`;
+    }
 
     const translatedText = await translateTextNode(transcriptText, targetLanguage);
 
