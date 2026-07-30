@@ -54,13 +54,24 @@ function runTranscription(
     const scriptPath = path.join(process.cwd(), "python", "transcribe.py");
     const command = `python "${scriptPath}" "${fileUrl}" "${targetLanguage}"`;
 
-    exec(command, (error, stdout, stderr) => {
+    exec(command, { timeout: 180000 }, (error, stdout, stderr) => {
       if (error) {
         console.error("❌ Python execution error:", error);
         return reject(new Error(stderr || error.message));
       }
       try {
-        const result = JSON.parse(stdout);
+        // Find last valid JSON line in stdout
+        const lines = stdout.trim().split("\n");
+        let jsonStr = "";
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const l = lines[i].trim();
+          if (l.startsWith("{") && l.endsWith("}")) {
+            jsonStr = l;
+            break;
+          }
+        }
+        if (!jsonStr) throw new Error("No JSON in transcription output.");
+        const result = JSON.parse(jsonStr);
         if (!result.success) return reject(new Error(result.error || "Transcription failed."));
         resolve(result);
       } catch {
@@ -70,55 +81,116 @@ function runTranscription(
   });
 }
 
+/**
+ * BUG FIX: Previously this was passing the URL as JSON body to Whisper API,
+ * which always fails. Now it downloads the audio as binary and posts it as
+ * multipart/form-data — the only way Whisper API accepts audio files.
+ */
 async function transcribeAudioUrlCloud(fileUrl: string): Promise<string | null> {
-  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-  if (apiKey) {
+  // Download the audio/video from Cloudinary as binary
+  let audioBuffer: ArrayBuffer | null = null;
+  let ext = "mp4";
+  try {
+    const audioRes = await fetch(fileUrl, {
+      headers: { "User-Agent": "VoxBridgeAI/2.0" }
+    });
+    if (audioRes.ok) {
+      audioBuffer = await audioRes.arrayBuffer();
+      const extMatch = fileUrl.match(/\.([a-zA-Z0-9]+)(\?|$)/);
+      ext = extMatch ? extMatch[1].toLowerCase() : "mp4";
+    }
+  } catch (dlErr) {
+    console.warn("⚠️ Audio download warning for cloud transcription:", dlErr);
+  }
+
+  if (!audioBuffer || audioBuffer.byteLength < 1000) {
+    console.warn("⚠️ Could not download valid audio from:", fileUrl);
+    return null;
+  }
+
+  const mimeType =
+    ext === "mp3" ? "audio/mpeg"
+    : ext === "wav" ? "audio/wav"
+    : ext === "ogg" ? "audio/ogg"
+    : ext === "webm" ? "audio/webm"
+    : "video/mp4";
+
+  const filename = `audio_input.${ext}`;
+
+  // Try Groq Whisper API
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey) {
     try {
-      const audioRes = await fetch(fileUrl);
-      if (audioRes.ok) {
-        const audioBuffer = await audioRes.arrayBuffer();
-        const extMatch = fileUrl.match(/\.([a-zA-Z0-9]+)(\?|$)/);
-        const ext = extMatch ? extMatch[1].toLowerCase() : "mp4";
-        const mimeType = ext === "mp3" ? "audio/mp3" : ext === "wav" ? "audio/wav" : `video/${ext}`;
+      const formData = new FormData();
+      formData.append("file", new Blob([audioBuffer], { type: mimeType }), filename);
+      formData.append("model", "whisper-large-v3");
+      formData.append("response_format", "text");
 
-        const formData = new FormData();
-        const blob = new Blob([audioBuffer], { type: mimeType });
-        formData.append("file", blob, `input_media.${ext}`);
-        formData.append("model", process.env.GROQ_API_KEY ? "whisper-large-v3" : "whisper-1");
-
-        const endpoint = process.env.GROQ_API_KEY
-          ? "https://api.groq.com/openai/v1/audio/transcriptions"
-          : "https://api.openai.com/v1/audio/transcriptions";
-
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}` },
-          body: formData,
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.text?.trim()) return data.text.trim();
+      const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${groqKey}` },
+        body: formData,
+      });
+      if (res.ok) {
+        const text = await res.text();
+        if (text?.trim()) {
+          console.log("✅ Groq Whisper cloud transcription succeeded.");
+          return text.trim();
         }
+      } else {
+        const errBody = await res.text();
+        console.warn("⚠️ Groq Whisper API error:", res.status, errBody.slice(0, 200));
       }
-    } catch (err) {
-      console.warn("Cloud Whisper API transcription warning:", err);
+    } catch (groqErr) {
+      console.warn("⚠️ Groq Whisper API exception:", groqErr);
     }
   }
 
-  // HuggingFace Free Speech Inference API fallback
+  // Try OpenAI Whisper API
+  const openAiKey = process.env.OPENAI_API_KEY;
+  if (openAiKey) {
+    try {
+      const formData = new FormData();
+      formData.append("file", new Blob([audioBuffer], { type: mimeType }), filename);
+      formData.append("model", "whisper-1");
+      formData.append("response_format", "text");
+
+      const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${openAiKey}` },
+        body: formData,
+      });
+      if (res.ok) {
+        const text = await res.text();
+        if (text?.trim()) {
+          console.log("✅ OpenAI Whisper cloud transcription succeeded.");
+          return text.trim();
+        }
+      } else {
+        const errBody = await res.text();
+        console.warn("⚠️ OpenAI Whisper API error:", res.status, errBody.slice(0, 200));
+      }
+    } catch (oaiErr) {
+      console.warn("⚠️ OpenAI Whisper API exception:", oaiErr);
+    }
+  }
+
+  // HuggingFace Inference API — accepts binary data directly
   try {
     const hfRes = await fetch("https://api-inference.huggingface.co/models/openai/whisper-large-v3-turbo", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inputs: fileUrl }),
+      headers: { "Content-Type": mimeType },
+      body: audioBuffer,
     });
     if (hfRes.ok) {
       const data = await hfRes.json();
-      if (data.text?.trim()) return data.text.trim();
+      if (data.text?.trim()) {
+        console.log("✅ HuggingFace Whisper cloud transcription succeeded.");
+        return data.text.trim();
+      }
     }
   } catch (hfErr) {
-    console.warn("HuggingFace Speech Inference warning:", hfErr);
+    console.warn("⚠️ HuggingFace Whisper API warning:", hfErr);
   }
 
   return null;
@@ -137,38 +209,82 @@ async function runTranscriptionSafe(
   translated_text: string;
   translated_segments: { start: number; end: number; text: string }[];
 }> {
-  try {
-    return await runTranscription(fileUrl, targetLanguage);
-  } catch (pythonErr) {
-    console.warn("⚠️ Python transcription engine unavailable (Vercel serverless), running cloud speech fallback:", pythonErr);
+  // 1. Try remote Python FastAPI backend microservice if deployed (Render / Railway / AWS)
+  const pythonBackendUrl =
+    process.env.PYTHON_BACKEND_URL ||
+    process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL ||
+    process.env.NEXT_PUBLIC_API_URL;
 
-    let transcriptText = customTranscript && customTranscript.trim() ? customTranscript.trim() : "";
+  if (pythonBackendUrl) {
+    try {
+      const cleanBackendUrl = pythonBackendUrl.replace(/\/$/, "");
+      console.log(`🌐 Vercel → Forwarding transcription to Python AI microservice: ${cleanBackendUrl}/api/transcribe`);
+      const backendRes = await fetch(`${cleanBackendUrl}/api/transcribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_url: fileUrl, target_language: targetLanguage }),
+      });
 
-    if (!transcriptText) {
-      const cloudTranscript = await transcribeAudioUrlCloud(fileUrl);
-      if (cloudTranscript) {
-        transcriptText = cloudTranscript;
+      if (backendRes.ok) {
+        const data = await backendRes.json();
+        if (data.success && data.transcript && data.transcript.trim().length > 3) {
+          console.log(`✅ Python backend transcription succeeded: "${data.transcript.slice(0, 60)}..."`);
+          return data;
+        }
       }
+    } catch (backendErr) {
+      console.warn("⚠️ Python backend transcription service warning:", backendErr);
     }
-
-    if (!transcriptText) {
-      const cleanName = fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9\s]/g, " ").trim();
-      transcriptText = cleanName && !cleanName.toLowerCase().startsWith("recording") && !cleanName.toLowerCase().startsWith("voice")
-        ? cleanName
-        : "Recorded Spoken Voice Speech";
-    }
-
-    const translatedText = await translateTextNode(transcriptText, targetLanguage);
-
-    return {
-      language: "en",
-      language_probability: 0.98,
-      transcript: transcriptText,
-      segments: [{ start: 0, end: 5, text: transcriptText }],
-      translated_text: translatedText,
-      translated_segments: [{ start: 0, end: 5, text: translatedText }]
-    };
   }
+
+  // 2. Try local Python child process (local dev server only)
+  try {
+    const result = await runTranscription(fileUrl, targetLanguage);
+    if (result.transcript && result.transcript.trim().length > 3) {
+      return result;
+    }
+    throw new Error("Local Python returned empty transcript.");
+  } catch (pythonErr) {
+    console.warn("⚠️ Python transcription engine unavailable (Vercel serverless mode):", pythonErr);
+  }
+
+  // 3. Cloud Whisper API — downloads audio binary and sends as multipart/form-data
+  let transcriptText = customTranscript && customTranscript.trim() ? customTranscript.trim() : "";
+
+  if (!transcriptText) {
+    console.log("🎙️ Attempting cloud Whisper API transcription for:", fileUrl.slice(0, 60));
+    const cloudTranscript = await transcribeAudioUrlCloud(fileUrl);
+    if (cloudTranscript && cloudTranscript.trim().length > 3) {
+      transcriptText = cloudTranscript;
+      console.log(`✅ Cloud Whisper transcription succeeded: "${transcriptText.slice(0, 60)}"`);
+    }
+  }
+
+  // 4. Last resort: filename-based placeholder (only if ALL above truly failed)
+  if (!transcriptText) {
+    const cleanName = fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9\s]/g, " ").trim();
+    transcriptText = cleanName && cleanName.length > 3
+      && !cleanName.toLowerCase().startsWith("recording")
+      && !cleanName.toLowerCase().startsWith("voice")
+      && !cleanName.toLowerCase().startsWith("audio")
+      && !cleanName.toLowerCase().match(/^[a-z0-9]{8,}$/) // reject hash-like filenames
+      ? cleanName
+      : "";
+    if (!transcriptText) {
+      console.warn("⚠️ ALL transcription methods failed. No transcript available for:", fileName);
+    }
+  }
+
+  const translatedText = transcriptText ? await translateTextNode(transcriptText, targetLanguage) : "";
+
+  return {
+    language: "en",
+    language_probability: transcriptText ? 0.75 : 0.0,
+    transcript: transcriptText,
+    segments: transcriptText ? [{ start: 0, end: 5, text: transcriptText }] : [],
+    translated_text: translatedText,
+    translated_segments: translatedText ? [{ start: 0, end: 5, text: translatedText }] : []
+  };
 }
 
 
@@ -192,6 +308,7 @@ export async function POST(request: Request) {
       targetLanguage = "Hindi",
       inputType = "upload_audio",
       transcriptText: clientTranscript,
+      preserveVoice = true,
     } = body;
 
     if (!userId || !originalName || !mediaType || !cloudinaryUrl || !publicId || !size) {
@@ -263,7 +380,7 @@ export async function POST(request: Request) {
     // 6. Run transcription + TTS synchronously (Vercel Serverless environment safe)
     try {
       const result = await runTranscriptionSafe(cloudinaryUrl, targetLanguage, originalName, clientTranscript);
-      console.log(`✅ Transcription done: ${originalName} (${result.language})`);
+      console.log(`✅ Transcription done: ${originalName} (${result.language}) → "${result.transcript.slice(0, 80)}"`);
 
       const srtContent = generateSRT(result.translated_segments);
 
@@ -277,6 +394,10 @@ export async function POST(request: Request) {
         srtContent,
         ttsStatus: "pending",
         videoMergeStatus: resolvedInputType === "upload_video" ? "pending" : "skipped",
+        voiceSettings: {
+          preserveVoice,
+          gender: "original",
+        },
       });
       await newTranslation.save();
 

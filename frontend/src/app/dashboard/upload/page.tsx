@@ -36,8 +36,9 @@ const LANGUAGES = [
 export const dynamic = "force-dynamic";
 
 export default function UploadPage() {
-  const [inputMode, setInputMode]       = useState<InputMode>("upload_audio");
+  const [inputMode, setInputMode]           = useState<InputMode>("upload_audio");
   const [targetLanguage, setTargetLanguage] = useState("Hindi");
+  const [preserveVoice, setPreserveVoice]   = useState(true);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -78,9 +79,9 @@ export default function UploadPage() {
   const handleRecordingReady = useCallback(
     (blob: Blob, filename: string, transcriptText?: string) => {
       const file = new File([blob], filename, { type: blob.type });
-      startUpload(file, targetLanguage, "microphone", transcriptText);
+      startUpload(file, targetLanguage, "microphone", transcriptText, preserveVoice);
     },
-    [startUpload, targetLanguage]
+    [startUpload, targetLanguage, preserveVoice]
   );
 
   const handleModeChange = (mode: InputMode) => {
@@ -146,7 +147,7 @@ export default function UploadPage() {
             <DragDropZone
               onFileSelected={async (selectedFile) => {
                 const speechText = await extractSpeechFromMediaFile(selectedFile);
-                startUpload(selectedFile, targetLanguage, inputMode, speechText);
+                startUpload(selectedFile, targetLanguage, inputMode, speechText, preserveVoice);
               }}
               allowedExtensions={allowedExtensions}
             />
@@ -162,7 +163,7 @@ export default function UploadPage() {
               error={error}
               videoMetadata={videoMetadata}
               onCancel={cancel}
-              onRetry={() => startUpload(file, targetLanguage, inputMode)}
+              onRetry={() => startUpload(file, targetLanguage, inputMode, undefined, preserveVoice)}
               onReset={() => { reset(); }}
               onProceed={handleProceed}
             />
@@ -196,14 +197,31 @@ export default function UploadPage() {
               label="Target Language"
             />
 
-            {/* AI Voice Synthesis Note */}
-            <div className="rounded-xl bg-[#FFF8F0] border border-[#D4AF7A]/40 p-4 text-xs text-[#7B1E3A] space-y-2">
-              <div className="flex items-center gap-1.5 font-bold">
-                <Sparkles className="h-4 w-4 text-[#D4AF7A]" />
-                <span>Piper Neural Synthesis</span>
+            {/* Preserve Original Voice Toggle Card */}
+            <div className="rounded-xl border border-[#F2E8DC] bg-[#FFF8F0] p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[#7B1E3A]" />
+                  <span className="text-xs font-bold text-[#2B1B1B]">Preserve Original Voice</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreserveVoice(!preserveVoice)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    preserveVoice ? "bg-[#7B1E3A]" : "bg-slate-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      preserveVoice ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
               </div>
               <p className="text-[11px] leading-relaxed text-[#7A6B6B] font-semibold">
-                After translation, we automatically generate a translated audio file using Piper TTS (100% offline, high accuracy).
+                {preserveVoice
+                  ? "XTTS v2 Voice Cloning enabled. Speech synthesis will clone your uploaded speaker's identity, pitch, style, and tone."
+                  : "Standard TTS engine enabled. Speech synthesis will use standard neural voices."}
               </p>
             </div>
           </div>

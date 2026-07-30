@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSidebarStore } from "@/hooks/useSidebarStore";
 import { UserButton } from "@clerk/nextjs";
 import {
@@ -33,37 +33,21 @@ interface NotificationItem {
 const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: "notif-1",
-    title: "Translation & TTS Ready",
-    desc: "Hindi voice translation generated successfully with Piper Neural TTS.",
-    type: "audio",
-    time: "2 mins ago",
-    read: false,
-    link: "/dashboard/projects",
+    title: "100% Free Unlimited Access",
+    desc: "Your account has full unlimited access to all AI translation & speech features.",
+    type: "info",
+    time: "Just now",
+    read: true,
+    link: "/dashboard",
   },
   {
     id: "notif-2",
-    title: "Video Merging Complete",
-    desc: "Your video clip has been synchronized with target audio track.",
-    type: "video",
-    time: "15 mins ago",
-    read: false,
-    link: "/dashboard/projects",
-  },
-  {
-    id: "notif-#3",
-    title: "100% Free Unlimited Access",
-    desc: "Your account has been granted 100% free unlimited AI translation access.",
-    type: "info",
-    time: "1 hour ago",
-    read: true,
-  },
-  {
-    id: "notif-4",
-    title: "Engine Update Live",
-    desc: "Faster-Whisper INT8 and Meta NLLB-200 models updated to v2.0.",
+    title: "VoxBridge Neural Engine Online",
+    desc: "Live speech recognition, translation, and lip-sync presenter active.",
     type: "success",
-    time: "3 hours ago",
+    time: "Just now",
     read: true,
+    link: "/dashboard/projects",
   },
 ];
 
@@ -77,6 +61,34 @@ export default function TopNavbar() {
   const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const refreshNotifications = async () => {
+    try {
+      const res = await fetch("/api/projects");
+      if (res.ok) {
+        const data = await res.json();
+        const liveProjects = data.projects || [];
+        if (liveProjects.length > 0) {
+          const freshNotifs: NotificationItem[] = liveProjects.slice(0, 5).map((p: any) => ({
+            id: `proj-${p._id}`,
+            title: `Project: ${p.name}`,
+            desc: `Target Language: ${p.targetLanguage} | Status: ${p.status.toUpperCase()}`,
+            type: p.inputType === "upload_video" ? "video" : "audio",
+            time: "Recently updated",
+            read: true,
+            link: `/dashboard/project/${p._id}`,
+          }));
+          setNotifications(freshNotifs);
+        }
+      }
+    } catch {
+      // Keep clean notifications
+    }
+  };
+
+  useEffect(() => {
+    refreshNotifications();
+  }, []);
 
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));

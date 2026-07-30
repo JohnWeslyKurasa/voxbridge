@@ -243,6 +243,53 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </motion.div>
 
+      {/* ── Processing Stages Card ───────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-[20px] border border-[#F2E8DC] shadow-soft p-5 space-y-4"
+      >
+        <div className="flex items-center justify-between border-b border-[#F2E8DC] pb-3">
+          <h2 className="text-xs font-bold text-[#2B1B1B] uppercase tracking-wider flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[#D4AF7A]" />
+            Pipeline Processing Stages
+          </h2>
+          <span className="text-[10px] font-bold text-[#7B1E3A] bg-[#FFF8F0] px-2.5 py-0.5 rounded-full border border-[#D4AF7A]/30">
+            XTTS v2 Voice Cloning
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+          {[
+            { label: "Audio extracted", done: !!project.sourceMedia?.cloudinaryUrl },
+            { label: "Speech recognized", done: !!translation?.transcriptText },
+            { label: "Translation completed", done: !!translation?.translatedText },
+            { label: "Voice cloned", done: translation?.ttsStatus === "completed" || translation?.ttsStatus === "processing" },
+            { label: "Audio generated", done: !!translation?.ttsAudioUrl },
+          ].map((stage, idx) => (
+            <div
+              key={idx}
+              className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs font-bold transition-all ${
+                stage.done
+                  ? "bg-emerald-50/70 border-emerald-200 text-emerald-800"
+                  : project.status === "processing" && idx === [!!project.sourceMedia?.cloudinaryUrl, !!translation?.transcriptText, !!translation?.translatedText, translation?.ttsStatus === "completed"].filter(Boolean).length
+                  ? "bg-[#FFF8F0] border-[#D4AF7A]/50 text-[#7B1E3A] animate-pulse"
+                  : "bg-slate-50 border-slate-200/60 text-slate-400"
+              }`}
+            >
+              {stage.done ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              ) : project.status === "processing" && idx === [!!project.sourceMedia?.cloudinaryUrl, !!translation?.transcriptText, !!translation?.translatedText, translation?.ttsStatus === "completed"].filter(Boolean).length ? (
+                <Loader2 className="h-4 w-4 text-[#7B1E3A] animate-spin shrink-0" />
+              ) : (
+                <div className="h-4 w-4 rounded-full border-2 border-slate-300 shrink-0" />
+              )}
+              <span className="truncate">{stage.label}</span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
       {/* Processing indicator */}
       {project.status === "processing" && (
         <div className="flex items-center gap-3 rounded-2xl bg-[#FFF8F0] border border-[#D4AF7A]/40 px-4 py-3.5">

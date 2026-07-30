@@ -67,12 +67,24 @@ VoxBridge AI is architected into two decoupled services:
 5. Set **Runtime** to `Docker` (or `Python 3`).
 6. Set Build Command: `pip install -r requirements.txt` (if Python runtime).
 7. Set Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`.
-8. Click **Create Web Service**.
+8. **Add these Environment Variables** (required for Cloudinary upload of XTTS audio):
+   - `CLOUDINARY_CLOUD_NAME` — your Cloudinary cloud name
+   - `CLOUDINARY_API_KEY` — your Cloudinary API key
+   - `CLOUDINARY_API_SECRET` — your Cloudinary API secret
+9. Click **Create Web Service**.
+10. Copy the deployed URL (e.g. `https://voxbridge-backend.onrender.com`).
 
 ### Option B: Railway.app
 1. Log into [Railway](https://railway.app).
 2. Click **New Project** → **Deploy from GitHub repo**.
 3. Select `backend/` directory. Railway will automatically detect the `Dockerfile` and deploy the service.
+4. Add the same **Environment Variables** as listed above for Render.
+
+### Connect Vercel to your Python Backend
+After deploying the backend, go to your **Vercel Project Settings → Environment Variables** and add:
+- `PYTHON_BACKEND_URL` = `https://your-backend-url.onrender.com`
+
+This ensures every upload on Vercel triggers XTTS v2 voice cloning via the Python microservice.
 
 ---
 

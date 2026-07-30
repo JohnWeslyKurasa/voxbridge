@@ -4,9 +4,9 @@ import json
 import tempfile
 import subprocess
 import gc
+import urllib.request
 from static_ffmpeg import add_paths
 
-# 1. Initialize static-ffmpeg to append static binaries into PATH environment
 add_paths()
 
 try:
@@ -22,7 +22,6 @@ except ImportError:
     print(json.dumps({"error": "Missing transformers, torch packages. Install via pip."}))
     sys.exit(1)
 
-# BCP-47 Target NLLB Code Mappings for Indian Languages
 LANG_MAPPING = {
     "English": "eng_Latn",
     "Hindi": "hin_Deva",
@@ -39,7 +38,6 @@ LANG_MAPPING = {
     "Urdu": "urd_Arab"
 }
 
-# Mapping Whisper detected ISO-639 codes to NLLB codes
 WHISPER_TO_NLLB = {
     "en": "eng_Latn",
     "hi": "hin_Deva",
@@ -59,7 +57,18 @@ WHISPER_TO_NLLB = {
 def extract_audio(input_file, output_wav):
     """
     Extracts audio from video or converts existing audio to 16kHz mono PCM WAV.
+    Handles HTTP/HTTPS URLs by downloading locally first.
     """
+    temp_dl_file = None
+    if input_file.startswith("http://") or input_file.startswith("https://"):
+        ext = ".mp4" if ".mp4" in input_file.lower() else ".wav" if ".wav" in input_file.lower() else ".mp3"
+        temp_dl_file = os.path.join(tempfile.gettempdir(), f"voxbridge_dl_{os.urandom(4).hex()}{ext}")
+        try:
+            urllib.request.urlretrieve(input_file, temp_dl_file)
+            input_file = temp_dl_file
+        except Exception as dl_err:
+            sys.stderr.write(f"[Transcribe] URL download warning: {dl_err}\n")
+
     command = [
         "ffmpeg",
         "-y",
@@ -71,6 +80,13 @@ def extract_audio(input_file, output_wav):
         output_wav
     ]
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    if temp_dl_file and os.path.exists(temp_dl_file):
+        try:
+            os.remove(temp_dl_file)
+        except Exception:
+            pass
+
     if result.returncode != 0:
         raise Exception(f"FFmpeg extraction failed: {result.stderr}")
 
@@ -80,28 +96,26 @@ def main():
         sys.exit(1)
 
     input_file = sys.argv[1]
-    
-    # Accept target language as second CLI parameter (default to English if not provided)
     target_lang_name = sys.argv[2] if len(sys.argv) > 2 else "English"
-    
-    # Resolve target NLLB code
     tgt_nllb = LANG_MAPPING.get(target_lang_name, "eng_Latn")
 
-    # Create a temporary file to store the extracted audio
     temp_dir = tempfile.gettempdir()
     temp_wav_path = os.path.join(temp_dir, f"voxbridge_temp_{os.getpid()}.wav")
     
     try:
-        # Extract audio using static-ffmpeg
         extract_audio(input_file, temp_wav_path)
         
-        # 1. Initialize Whisper Model on CPU
-        whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
+        use_gpu = torch.cuda.is_available()
+        device = "cuda" if use_gpu else "cpu"
+        compute_type = "float16" if use_gpu else "int8"
         
-        # Transcribe audio file
+        try:
+            whisper_model = WhisperModel("base", device=device, compute_type=compute_type)
+        except Exception:
+            whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
+
         segments, info = whisper_model.transcribe(temp_wav_path, beam_size=5)
         
-        # Compile Whisper segments
         compiled_segments = []
         full_text_list = []
         for segment in segments:
@@ -118,35 +132,24 @@ def main():
         detected_iso = info.language
         src_nllb = WHISPER_TO_NLLB.get(detected_iso, "eng_Latn")
 
-        # 2. Release Whisper model RAM memory before loading NLLB-200
         del whisper_model
         gc.collect()
 
-        # 3. Translation Pipeline Integration
         translated_text = ""
         translated_segments = []
 
         if src_nllb != tgt_nllb and full_transcript.strip():
-            # Fast Primary Translation Engine (0.2s)
             def translate_text(text):
                 if not text.strip():
                     return text
                 try:
                     from deep_translator import GoogleTranslator
-                    src_iso = detected_iso if detected_iso else "auto"
-                    tgt_iso = WHISPER_TO_NLLB.get(tgt_nllb, "hi") # fallback
-                    # map tgt_nllb back to standard target name or iso
-                    for lang_name, nllb_code in LANG_MAPPING.items():
-                        if nllb_code == tgt_nllb:
-                            tgt_iso = lang_name.lower()[:2]
-                            break
                     res = GoogleTranslator(source="auto", target=target_lang_name.lower()).translate(text)
                     if res and res.strip():
                         return res
                 except Exception:
                     pass
 
-                # Fallback to Meta NLLB-200 if offline or fast translator fails
                 try:
                     tokenizer = AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-600M", src_lang=src_nllb)
                     nllb_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/nllb-200-distilled-600M")
@@ -158,10 +161,7 @@ def main():
                 except Exception as e:
                     return text
 
-            # Translate full transcript text
             translated_text = translate_text(full_transcript)
-
-            # Translate segments individually for timestamped subtitles
             for seg in compiled_segments:
                 translated_val = translate_text(seg["text"])
                 translated_segments.append({
@@ -173,7 +173,6 @@ def main():
             translated_text = full_transcript
             translated_segments = compiled_segments
 
-        # Output final structural dual-translation JSON to stdout
         output_data = {
             "success": True,
             "language": detected_iso,
@@ -193,7 +192,6 @@ def main():
         sys.exit(1)
         
     finally:
-        # Cleanup temp WAV file
         if os.path.exists(temp_wav_path):
             try:
                 os.remove(temp_wav_path)

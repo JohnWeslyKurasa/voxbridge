@@ -141,6 +141,7 @@ export const uploadService = {
     targetLanguage?: string;
     inputType?: string;
     transcriptText?: string;
+    preserveVoice?: boolean;
   }) {
     const res = await fetch("/api/upload/save", {
       method: "POST",
