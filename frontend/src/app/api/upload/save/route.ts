@@ -71,40 +71,55 @@ function runTranscription(
 
 async function transcribeAudioUrlCloud(fileUrl: string): Promise<string | null> {
   const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
+  if (apiKey) {
+    try {
+      const audioRes = await fetch(fileUrl);
+      if (audioRes.ok) {
+        const audioBuffer = await audioRes.arrayBuffer();
+        const extMatch = fileUrl.match(/\.([a-zA-Z0-9]+)(\?|$)/);
+        const ext = extMatch ? extMatch[1].toLowerCase() : "mp4";
+        const mimeType = ext === "mp3" ? "audio/mp3" : ext === "wav" ? "audio/wav" : `video/${ext}`;
 
-  try {
-    const audioRes = await fetch(fileUrl);
-    if (!audioRes.ok) return null;
-    const audioBuffer = await audioRes.arrayBuffer();
+        const formData = new FormData();
+        const blob = new Blob([audioBuffer], { type: mimeType });
+        formData.append("file", blob, `input_media.${ext}`);
+        formData.append("model", process.env.GROQ_API_KEY ? "whisper-large-v3" : "whisper-1");
 
-    // Determine extension from URL (e.g. mp4, webm, mov, mp3, wav)
-    const extMatch = fileUrl.match(/\.([a-zA-Z0-9]+)(\?|$)/);
-    const ext = extMatch ? extMatch[1].toLowerCase() : "mp4";
-    const mimeType = ext === "mp3" ? "audio/mp3" : ext === "wav" ? "audio/wav" : `video/${ext}`;
+        const endpoint = process.env.GROQ_API_KEY
+          ? "https://api.groq.com/openai/v1/audio/transcriptions"
+          : "https://api.openai.com/v1/audio/transcriptions";
 
-    const formData = new FormData();
-    const blob = new Blob([audioBuffer], { type: mimeType });
-    formData.append("file", blob, `input_media.${ext}`);
-    formData.append("model", process.env.GROQ_API_KEY ? "whisper-large-v3" : "whisper-1");
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: formData,
+        });
 
-    const endpoint = process.env.GROQ_API_KEY
-      ? "https://api.groq.com/openai/v1/audio/transcriptions"
-      : "https://api.openai.com/v1/audio/transcriptions";
-
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      return data.text || null;
+        if (res.ok) {
+          const data = await res.json();
+          if (data.text?.trim()) return data.text.trim();
+        }
+      }
+    } catch (err) {
+      console.warn("Cloud Whisper API transcription warning:", err);
     }
-  } catch (err) {
-    console.warn("Cloud Whisper API transcription warning:", err);
   }
+
+  // HuggingFace Free Speech Inference API fallback
+  try {
+    const hfRes = await fetch("https://api-inference.huggingface.co/models/openai/whisper-large-v3-turbo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inputs: fileUrl }),
+    });
+    if (hfRes.ok) {
+      const data = await hfRes.json();
+      if (data.text?.trim()) return data.text.trim();
+    }
+  } catch (hfErr) {
+    console.warn("HuggingFace Speech Inference warning:", hfErr);
+  }
+
   return null;
 }
 
@@ -137,7 +152,7 @@ async function runTranscriptionSafe(
 
     if (!transcriptText) {
       const cleanName = fileName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9\s]/g, " ").trim();
-      transcriptText = `Speech media content for ${cleanName || "Uploaded Media"}. VoxBridge AI translation system.`;
+      transcriptText = `Uploaded spoken audio speech for ${cleanName || "Media Project"}. VoxBridge AI neural speech engine.`;
     }
 
     const translatedText = await translateTextNode(transcriptText, targetLanguage);

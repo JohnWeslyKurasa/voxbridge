@@ -3,7 +3,6 @@
  */
 export async function extractSpeechFromMediaFile(file: File): Promise<string> {
   return new Promise((resolve) => {
-    // Check for browser SpeechRecognition support
     const win = window as unknown as Record<string, unknown>;
     const SpeechRecognitionClass = (win.SpeechRecognition || win.webkitSpeechRecognition) as {
       new (): {
@@ -24,11 +23,16 @@ export async function extractSpeechFromMediaFile(file: File): Promise<string> {
     }
 
     try {
-      const mediaEl = document.createElement(file.type.startsWith("video/") ? "video" : "audio");
+      const isVideo = file.type.startsWith("video/") || file.name.endsWith(".mp4") || file.name.endsWith(".webm") || file.name.endsWith(".mov");
+      const mediaEl = document.createElement(isVideo ? "video" : "audio");
       const objectUrl = URL.createObjectURL(file);
+
       mediaEl.src = objectUrl;
-      mediaEl.muted = false;
+      mediaEl.muted = true; // Mute element to prevent audible noise while decoding
       mediaEl.volume = 1.0;
+      if (mediaEl instanceof HTMLVideoElement) {
+        mediaEl.playsInline = true;
+      }
 
       const recognition = new SpeechRecognitionClass();
       recognition.continuous = true;
@@ -47,6 +51,7 @@ export async function extractSpeechFromMediaFile(file: File): Promise<string> {
 
       const finish = () => {
         try { recognition.stop(); } catch {}
+        try { mediaEl.pause(); } catch {}
         URL.revokeObjectURL(objectUrl);
         resolve(capturedText.trim());
       };
@@ -54,17 +59,31 @@ export async function extractSpeechFromMediaFile(file: File): Promise<string> {
       recognition.onend = finish;
       recognition.onerror = finish;
 
-      // Timeout safety after 10 seconds of extraction
-      setTimeout(finish, 10000);
+      // Timeout safety after 12 seconds of extraction
+      setTimeout(finish, 12000);
 
-      mediaEl.onloadeddata = () => {
+      const startExtraction = () => {
         try {
           recognition.start();
-          mediaEl.play().catch(() => {});
+          mediaEl.muted = false;
+          mediaEl.play().then(() => {
+            // Started playback successfully
+          }).catch(() => {
+            // Autoplay blocked fallback
+            mediaEl.muted = true;
+            mediaEl.play().catch(() => {});
+          });
         } catch {
           finish();
         }
       };
+
+      if (mediaEl.readyState >= 2) {
+        startExtraction();
+      } else {
+        mediaEl.onloadeddata = startExtraction;
+        mediaEl.oncanplay = startExtraction;
+      }
 
       mediaEl.onerror = finish;
     } catch {
