@@ -452,7 +452,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <Download className="h-5 w-5 text-[#D4AF7A]" />
                 Transcript<br />.txt
               </a>
-              {translation.translatedSegments?.length > 0 && (
+              {isVideoProject && translation.translatedSegments?.length > 0 && (
                 <a
                   href={`/api/download/srt/${projectId}`}
                   download
