@@ -2,21 +2,21 @@ services:
   # 1. Frontend Next.js Web App
   - type: web
     name: voxbridge-frontend
-    env: node
+    runtime: node
     rootDir: frontend
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION
-        value: 20.11.0
+        value: "20"
 
   # 2. Backend Python AI Microservice
   - type: web
     name: voxbridge-backend
-    env: python
+    runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: "3.11"
