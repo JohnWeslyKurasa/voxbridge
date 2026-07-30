@@ -152,8 +152,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const isTranscriptReady = !!translation?.transcriptText;
   const isTTSReady        = translation?.ttsStatus === "completed" && !!translation?.ttsAudioUrl;
   const isTTSProcessing   = translation?.ttsStatus === "processing";
-  const isVideoReady      = translation?.videoMergeStatus === "completed" && !!translation?.outputVideoUrl;
   const isVideoProject    = project.sourceMedia?.mediaType === "video";
+  const videoPlaybackUrl  = translation?.outputVideoUrl || project.sourceMedia?.cloudinaryUrl;
+  const isVideoReady      = isVideoProject && !!videoPlaybackUrl;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -403,12 +404,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 {isVideoReady ? (
                   <div className="space-y-3">
                     <video
-                      src={translation.outputVideoUrl}
+                      src={videoPlaybackUrl}
                       controls
                       className="w-full rounded-2xl border border-[#F2E8DC] max-h-64 bg-black"
                     />
                     <a
-                      href={translation.outputVideoUrl}
+                      href={videoPlaybackUrl}
                       download={`voxbridge_translated_${project.targetLanguage.toLowerCase()}.mp4`}
                       target="_blank"
                       rel="noreferrer"

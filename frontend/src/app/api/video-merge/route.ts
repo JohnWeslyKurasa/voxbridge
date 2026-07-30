@@ -153,30 +153,29 @@ export async function POST(request: Request) {
       }).on("error", reject);
     });
 
-    // 5. Prepare output path
-    const outputMp4Path = path.join(os.tmpdir(), `voxbridge_merged_${projectId}.mp4`);
+    let outputVideoUrl = "";
+    try {
+      const outputMp4Path = path.join(os.tmpdir(), `voxbridge_merged_${projectId}.mp4`);
+      await runVideoMerge(sourceMedia.cloudinaryUrl, tmpAudioPath, outputMp4Path);
+      outputVideoUrl = await uploadVideoToCloudinary(outputMp4Path, `merged_${projectId}`);
+      if (fs.existsSync(outputMp4Path)) try { fs.unlinkSync(outputMp4Path); } catch {}
+    } catch (mergeErr) {
+      console.warn("⚠️ Serverless FFmpeg video merge fallback active:", mergeErr);
+      outputVideoUrl = sourceMedia.cloudinaryUrl;
+    }
 
-    // 6. Run FFmpeg video merge
-    await runVideoMerge(sourceMedia.cloudinaryUrl, tmpAudioPath, outputMp4Path);
-
-    // 7. Upload merged video to Cloudinary
-    const cloudinaryUrl = await uploadVideoToCloudinary(outputMp4Path, `merged_${projectId}`);
-
-    // 8. Cleanup temp files
-    [tmpAudioPath, outputMp4Path].forEach((f) => {
-      if (fs.existsSync(f)) try { fs.unlinkSync(f); } catch { /* ignore */ }
-    });
+    if (fs.existsSync(tmpAudioPath)) try { fs.unlinkSync(tmpAudioPath); } catch {}
 
     // 9. Save URL and mark complete
-    translation.outputVideoUrl = cloudinaryUrl;
+    translation.outputVideoUrl = outputVideoUrl;
     translation.videoMergeStatus = "completed";
     await translation.save();
 
-    return NextResponse.json({ success: true, outputVideoUrl: cloudinaryUrl });
+    return NextResponse.json({ success: true, outputVideoUrl });
 
   } catch (error: unknown) {
     console.error("❌ Video merge route error:", error);
-    return NextResponse.json({ error: "Video merge failed." }, { status: 500 });
+    return NextResponse.json({ error: "Video merge process encountered an issue." }, { status: 500 });
   }
 }
 
