@@ -37,9 +37,9 @@ export default function AIAvatarPresenterPlayer({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
-  // Avatar Image Source
+  // Avatar Image Source & Titles
   const avatarImgSrc = gender === "male" ? "/avatars/male_presenter.jpg" : "/avatars/female_presenter.jpg";
-  const presenterName = gender === "male" ? "James (Male AI Presenter)" : "Elena (Female AI Presenter)";
+  const presenterName = gender === "male" ? "Ethan (Handsome Boy in Sunset Resort)" : "Sophia (Beautiful Girl on Tropical Terrace)";
 
   // Setup Web Audio Analyser for Lip Sync Mouth Motion
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function AIAvatarPresenterPlayer({
         const ctx = new AudioCtx();
         const srcNode = ctx.createMediaElementSource(audio);
         const analyser = ctx.createAnalyser();
-        analyser.fftSize = 128;
+        analyser.fftSize = 256;
         srcNode.connect(analyser);
         analyser.connect(ctx.destination);
 
@@ -93,15 +93,19 @@ export default function AIAvatarPresenterPlayer({
       }
     }
 
-    const dataArray = new Uint8Array(64);
+    const dataArray = new Uint8Array(128);
 
     const animateMouth = () => {
       if (analyserRef.current && audioRef.current && !audioRef.current.paused) {
         analyserRef.current.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < 20; i++) sum += dataArray[i];
-        const avg = sum / 20;
-        const ratio = Math.min(1, avg / 140);
+        // Analyze human vocal frequency range (bands 4 to 35)
+        let vocalEnergy = 0;
+        for (let i = 4; i < 35; i++) {
+          vocalEnergy += dataArray[i];
+        }
+        const avg = vocalEnergy / 31;
+        // Dynamic non-linear open ratio for realistic syllable emphasis
+        const ratio = Math.min(1, Math.pow(avg / 110, 1.2));
         setMouthOpenRatio(ratio);
         animFrameRef.current = requestAnimationFrame(animateMouth);
       } else {
@@ -152,7 +156,7 @@ export default function AIAvatarPresenterPlayer({
         <div>
           <h2 className="text-sm font-extrabold text-[#2B1B1B] flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-[#D4AF7A]" />
-            AI Avatar Lip-Sync Presenter Video
+            AI Scenic Avatar Lip-Sync Video Presenter
           </h2>
           <p className="text-[11px] font-semibold text-[#7A6B6B] mt-0.5">
             Photorealistic AI Presenter speaking in {targetLanguage}
@@ -170,7 +174,7 @@ export default function AIAvatarPresenterPlayer({
                 : "text-[#7A6B6B] hover:text-[#7B1E3A]"
             }`}
           >
-            👩 Female Avatar
+            💃 Beautiful Girl Avatar
           </button>
           <button
             type="button"
@@ -181,7 +185,7 @@ export default function AIAvatarPresenterPlayer({
                 : "text-[#7A6B6B] hover:text-[#7B1E3A]"
             }`}
           >
-            👨 Male Avatar
+            🕺 Handsome Boy Avatar
           </button>
         </div>
       </div>
@@ -193,27 +197,31 @@ export default function AIAvatarPresenterPlayer({
         <img
           src={avatarImgSrc}
           alt={presenterName}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className={`w-full h-full object-cover transition-transform duration-500 ${
+            isPlaying ? "scale-105" : "scale-100"
+          }`}
         />
 
         {/* Dynamic Animated Lip-Sync Mouth Overlay */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-75"
+          className="absolute pointer-events-none transition-all duration-75"
           style={{
-            top: gender === "male" ? "54%" : "52%",
-            width: "36px",
-            height: `${12 + mouthOpenRatio * 18}px`,
-            borderRadius: "50%",
-            backgroundColor: "rgba(35, 12, 18, 0.75)",
-            boxShadow: `0 0 ${mouthOpenRatio * 15}px rgba(212, 175, 122, 0.6)`,
-            transform: `translateX(-50%) scale(${1 + mouthOpenRatio * 0.15})`,
-            opacity: isPlaying ? 0.85 : 0,
+            top: gender === "male" ? "62%" : "61.5%",
+            left: "50%",
+            width: `${24 + mouthOpenRatio * 16}px`,
+            height: `${8 + mouthOpenRatio * 14}px`,
+            borderRadius: `${50 - mouthOpenRatio * 20}%`,
+            backgroundColor: "rgba(45, 15, 22, 0.88)",
+            border: `${1 + mouthOpenRatio * 1.5}px solid rgba(220, 150, 160, 0.6)`,
+            boxShadow: `0 0 ${mouthOpenRatio * 12}px rgba(212, 175, 122, 0.5)`,
+            transform: `translate(-50%, -50%) scaleX(${1 + mouthOpenRatio * 0.12})`,
+            opacity: isPlaying ? Math.max(0.4, mouthOpenRatio) : 0,
           }}
         />
 
         {/* Live Speaking Badge Overlay */}
-        <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20 text-white text-xs font-bold">
-          <span className={`h-2.5 w-2.5 rounded-full ${isPlaying ? "bg-emerald-400 animate-ping" : "bg-zinc-400"}`} />
+        <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-white text-xs font-bold shadow-md">
+          <span className={`h-2.5 w-2.5 rounded-full ${isPlaying ? "bg-emerald-400 animate-pulse" : "bg-zinc-400"}`} />
           <span>{presenterName}</span>
         </div>
 
