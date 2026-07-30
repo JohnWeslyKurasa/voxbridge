@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { exec } from "child_process";
 import path from "path";
 import connectToDatabase from "@/lib/mongodb";
@@ -200,14 +201,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Locate or create local User profile bridge
-    let dbUser = await User.findOne({ clerkId: userId });
+    // 1. Locate or create local User profile bridge linked to authenticated Clerk email/user
+    const clerkUser = await currentUser();
+    const primaryEmail = clerkUser?.emailAddresses?.[0]?.emailAddress;
+    const effectiveClerkId = clerkUser?.id || userId;
+    const fullName = clerkUser ? `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() : "VoxBridge Creator";
+
+    const userQueryConditions: Array<{ clerkId?: string; email?: string }> = [
+      { clerkId: effectiveClerkId }
+    ];
+    if (primaryEmail) userQueryConditions.push({ email: primaryEmail });
+
+    let dbUser = await User.findOne({ $or: userQueryConditions });
     if (!dbUser) {
       dbUser = await User.create({
-        clerkId: userId,
-        fullName: "VoxBridge Creator",
-        email: `${userId}@clerk.preview`,
-        credits: 15,
+        clerkId: effectiveClerkId,
+        fullName: fullName || "VoxBridge Creator",
+        email: primaryEmail || `${effectiveClerkId}@voxbridge.ai`,
+        credits: 9999,
         plan: "free",
       });
     }

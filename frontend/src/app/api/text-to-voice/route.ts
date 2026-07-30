@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs/server";
 import connectDB from "@/lib/mongodb";
 import Project from "@/models/Project";
 import Translation from "@/models/Translation";
@@ -36,19 +37,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Text content is required." }, { status: 400 });
     }
 
-    const effectiveUserId = userId || "mock-user-johnk";
+    const clerkUser = await currentUser();
+    const primaryEmail = clerkUser?.emailAddresses?.[0]?.emailAddress;
+    const effectiveClerkId = clerkUser?.id || userId || "guest_user";
+    const fullName = clerkUser ? `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() : "VoxBridge Creator";
+
     const srcLang = sourceLanguage || "English";
     const tgtLang = targetLanguage || "Hindi";
 
     await connectDB();
 
     // 1. Locate or create local User profile bridge
-    let dbUser = await User.findOne({ clerkId: effectiveUserId });
+    const userQuery: Array<{ clerkId?: string; email?: string }> = [
+      { clerkId: effectiveClerkId }
+    ];
+    if (primaryEmail) userQuery.push({ email: primaryEmail });
+
+    let dbUser = await User.findOne({ $or: userQuery });
     if (!dbUser) {
       dbUser = await User.create({
-        clerkId: effectiveUserId,
-        fullName: "VoxBridge Creator",
-        email: `${effectiveUserId}@voxbridge.ai`,
+        clerkId: effectiveClerkId,
+        fullName: fullName || "VoxBridge Creator",
+        email: primaryEmail || `${effectiveClerkId}@voxbridge.ai`,
       });
     }
 

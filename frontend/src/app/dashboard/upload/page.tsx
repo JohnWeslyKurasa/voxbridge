@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useUpload } from "@/hooks/useUpload";
 import DragDropZone from "@/components/upload/DragDropZone";
 import FilePreview from "@/components/upload/FilePreview";
@@ -53,6 +54,9 @@ export default function UploadPage() {
       ? ["mp4", "mov", "avi", "mkv", "webm"]
       : ["mp3", "wav", "aac", "flac", "m4a", "ogg", "mp4", "mov", "avi", "mkv", "webm"];
 
+  const { user } = useUser();
+  const activeUserId = user?.id || user?.primaryEmailAddress?.emailAddress || "guest_user";
+
   const {
     file,
     progress,
@@ -64,7 +68,7 @@ export default function UploadPage() {
     cancel,
     reset,
   } = useUpload({
-    userId: "mock-user-johnk",
+    userId: activeUserId,
     allowedExtensions,
     onSuccess: (projectId) => {
       console.log("✅ Upload complete. Project ID:", projectId);
