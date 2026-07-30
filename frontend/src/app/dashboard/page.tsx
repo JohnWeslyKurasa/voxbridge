@@ -159,8 +159,8 @@ export default function DashboardPage() {
         </Link>
       </motion.div>
 
-      {/* Analytics / Quick Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Analytics / Quick Stats Column-Wise Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s, idx) => {
           const Icon = s.icon;
           return (
@@ -169,17 +169,15 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: idx * 0.05 }}
-              className="bg-white p-6 rounded-[20px] border border-[#F2E8DC] shadow-soft flex flex-col justify-between hover:border-[#D4AF7A]/50 transition-all group"
+              className="bg-white p-5 rounded-[20px] border border-[#F2E8DC] shadow-soft flex items-center justify-between hover:border-[#D4AF7A]/50 transition-all group"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#7A6B6B] uppercase tracking-wider">{s.name}</span>
-                <div className="p-2.5 rounded-xl bg-[#FFF8F0] border border-[#F2E8DC] text-[#7B1E3A] group-hover:bg-gradient-to-br group-hover:from-[#7B1E3A] group-hover:to-[#A23B5A] group-hover:text-white transition-all">
-                  <Icon className="h-5 w-5 text-[#D4AF7A]" />
-                </div>
-              </div>
-              <div className="mt-4 space-y-1">
-                <span className="text-2xl font-extrabold text-[#2B1B1B]">{s.value}</span>
+              <div className="space-y-1">
+                <span className="text-[11px] font-extrabold text-[#7A6B6B] uppercase tracking-wider block">{s.name}</span>
+                <span className="text-2xl font-extrabold text-[#2B1B1B] block">{s.value}</span>
                 <p className="text-[11px] font-semibold text-[#7A6B6B]">{s.detail}</p>
+              </div>
+              <div className="p-3 rounded-2xl bg-[#FFF8F0] border border-[#F2E8DC] text-[#7B1E3A] group-hover:bg-gradient-to-br group-hover:from-[#7B1E3A] group-hover:to-[#A23B5A] group-hover:text-white transition-all shrink-0">
+                <Icon className="h-6 w-6 text-[#D4AF7A]" />
               </div>
             </motion.div>
           );

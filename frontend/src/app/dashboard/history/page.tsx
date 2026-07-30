@@ -70,23 +70,38 @@ export default function HistoryPage() {
         </p>
       </div>
 
-      {/* Overview Stats */}
+      {/* Overview Stats (Column-Wise Layout) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-[20px] border border-[#F2E8DC] shadow-soft space-y-1">
-          <p className="text-xs font-bold text-[#7A6B6B] uppercase tracking-wider">Completed Jobs</p>
-          <p className="text-2xl font-extrabold text-[#2B1B1B]">{completedProjects.length}</p>
+        <div className="bg-white p-5 rounded-[20px] border border-[#F2E8DC] shadow-soft flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="text-[11px] font-extrabold text-[#7A6B6B] uppercase tracking-wider">Completed Jobs</p>
+            <p className="text-2xl font-extrabold text-[#2B1B1B]">{completedProjects.length}</p>
+          </div>
+          <div className="p-3 rounded-2xl bg-[#FFF8F0] border border-[#F2E8DC]">
+            <History className="h-6 w-6 text-[#D4AF7A]" />
+          </div>
         </div>
-        <div className="bg-white p-5 rounded-[20px] border border-[#F2E8DC] shadow-soft space-y-1">
-          <p className="text-xs font-bold text-[#7A6B6B] uppercase tracking-wider">Languages Translated</p>
-          <p className="text-2xl font-extrabold text-[#7B1E3A]">
-            {new Set(completedProjects.map((p) => p.targetLanguage)).size}
-          </p>
+        <div className="bg-white p-5 rounded-[20px] border border-[#F2E8DC] shadow-soft flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="text-[11px] font-extrabold text-[#7A6B6B] uppercase tracking-wider">Languages Translated</p>
+            <p className="text-2xl font-extrabold text-[#7B1E3A]">
+              {new Set(completedProjects.map((p) => p.targetLanguage)).size}
+            </p>
+          </div>
+          <div className="p-3 rounded-2xl bg-[#FFF8F0] border border-[#F2E8DC]">
+            <Globe className="h-6 w-6 text-[#D4AF7A]" />
+          </div>
         </div>
-        <div className="bg-white p-5 rounded-[20px] border border-[#F2E8DC] shadow-soft space-y-1">
-          <p className="text-xs font-bold text-[#7A6B6B] uppercase tracking-wider">Generated Outputs</p>
-          <p className="text-2xl font-extrabold text-emerald-700">
-            {completedProjects.reduce((acc, p) => acc + (p.translation?.ttsAudioUrl ? 1 : 0) + (p.translation?.outputVideoUrl ? 1 : 0), 0)}
-          </p>
+        <div className="bg-white p-5 rounded-[20px] border border-[#F2E8DC] shadow-soft flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="text-[11px] font-extrabold text-[#7A6B6B] uppercase tracking-wider">Generated Outputs</p>
+            <p className="text-2xl font-extrabold text-emerald-700">
+              {completedProjects.reduce((acc, p) => acc + (p.translation?.ttsAudioUrl ? 1 : 0) + (p.translation?.outputVideoUrl ? 1 : 0), 0)}
+            </p>
+          </div>
+          <div className="p-3 rounded-2xl bg-[#FFF8F0] border border-[#F2E8DC]">
+            <Volume2 className="h-6 w-6 text-[#7B1E3A]" />
+          </div>
         </div>
       </div>
 

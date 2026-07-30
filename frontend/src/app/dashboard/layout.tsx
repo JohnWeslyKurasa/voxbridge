@@ -2,6 +2,7 @@
 
 import Sidebar from "@/components/layout/Sidebar";
 import TopNavbar from "@/components/layout/TopNavbar";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import { useSidebarStore } from "@/hooks/useSidebarStore";
 
 /**
@@ -33,10 +34,13 @@ export default function DashboardLayout({
         <TopNavbar />
 
         {/* Dynamic page contents nested inside */}
-        <main className="flex-1 p-6 sm:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-3 sm:p-8 pb-20 lg:pb-8 max-w-7xl mx-auto w-full">
           {children}
         </main>
       </div>
+
+      {/* Mobile Bottom Dock Navigation */}
+      <MobileBottomNav />
     </div>
   );
 }
