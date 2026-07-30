@@ -20,6 +20,7 @@ import {
 import { motion } from "framer-motion";
 import AudioPlayer from "@/components/player/AudioPlayer";
 import TranscriptViewer from "@/components/player/TranscriptViewer";
+import AIAvatarPresenterPlayer from "@/components/avatar/AIAvatarPresenterPlayer";
 
 /** Type-safe project data structure matching MongoDB population */
 interface ProjectDetail {
@@ -331,12 +332,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
             <div className="p-6">
               {isTTSReady ? (
-                <AudioPlayer
-                  src={translation.ttsAudioUrl}
-                  label={`${project.targetLanguage} Speech`}
-                  filename={`translated_${project.targetLanguage.toLowerCase()}`}
-                  showDownload={true}
-                />
+                <div className="space-y-6">
+                  <AudioPlayer
+                    src={translation.ttsAudioUrl}
+                    label={`${project.targetLanguage} Speech`}
+                    filename={`translated_${project.targetLanguage.toLowerCase()}`}
+                    showDownload={true}
+                  />
+                  <AIAvatarPresenterPlayer
+                    audioSrc={translation.ttsAudioUrl}
+                    targetLanguage={project.targetLanguage}
+                    projectName={project.name}
+                  />
+                </div>
               ) : isTTSProcessing ? (
                 <div className="flex items-center gap-3 rounded-2xl bg-[#FFF8F0] border border-[#D4AF7A]/40 p-4">
                   <Loader2 className="h-5 w-5 text-[#7B1E3A] animate-spin shrink-0" />
