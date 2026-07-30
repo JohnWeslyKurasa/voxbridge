@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { UploadCloud, FileVideo, FileAudio, AlertCircle } from "lucide-react";
+import { UploadCloud, FileVideo, FileAudio, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 
 export interface DragDropZoneProps {
@@ -117,9 +117,9 @@ export default function DragDropZone({
           </span>
         </div>
 
-        <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#7B1E3A] bg-[#FFF8F0] border border-[#D4AF7A]/40 px-3.5 py-1.5 rounded-xl mt-4">
-          <AlertCircle className="h-4 w-4 text-[#D4AF7A]" />
-          <span>Credits cost is calculated based on media duration (1 credit per minute)</span>
+        <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 rounded-xl mt-4">
+          <Sparkles className="h-4 w-4 text-emerald-600" />
+          <span>100% Free & Unlimited Audio & Video Translation</span>
         </div>
       </div>
     </motion.div>

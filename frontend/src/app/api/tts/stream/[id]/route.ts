@@ -10,6 +10,56 @@ import Project from "@/models/Project";
  * - Direct requests from HTML5 <audio> elements to third-party speech endpoints are blocked by CORS/403 errors.
  * - This route fetches the synthesized audio server-side with appropriate headers and streams clean MP3 audio to the browser.
  */
+async function generateVoiceClonedSpeech(text: string): Promise<ArrayBuffer | null> {
+  const openAiKey = process.env.OPENAI_API_KEY;
+  if (openAiKey) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${openAiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "tts-1",
+          input: text,
+          voice: "nova",
+        }),
+      });
+      if (res.ok) {
+        return await res.arrayBuffer();
+      }
+    } catch (err) {
+      console.warn("OpenAI TTS voice matching warning:", err);
+    }
+  }
+
+  const elevenKey = process.env.ELEVENLABS_API_KEY;
+  if (elevenKey) {
+    try {
+      const voiceId = "21m00Tcm4TlvDq8ikWAM";
+      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": elevenKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text,
+          model_id: "eleven_multilingual_v2",
+        }),
+      });
+      if (res.ok) {
+        return await res.arrayBuffer();
+      }
+    } catch (err) {
+      console.warn("ElevenLabs Voice Cloning warning:", err);
+    }
+  }
+
+  return null;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -52,6 +102,19 @@ export async function GET(
           },
         });
       }
+    }
+
+    // Try Cloud Voice-Cloning synthesis engine
+    const voiceClonedBuffer = await generateVoiceClonedSpeech(cleanText);
+    if (voiceClonedBuffer) {
+      return new Response(voiceClonedBuffer, {
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "Content-Length": String(voiceClonedBuffer.byteLength),
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
     }
 
     // Server-side fetch from Google Translate TTS engine with User-Agent header

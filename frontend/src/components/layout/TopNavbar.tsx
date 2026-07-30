@@ -51,8 +51,8 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   },
   {
     id: "notif-#3",
-    title: "Pro Studio Credits Added",
-    desc: "Your account has been allocated 15 high-speed AI translation credits.",
+    title: "100% Free Unlimited Access",
+    desc: "Your account has been granted 100% free unlimited AI translation access.",
     type: "info",
     time: "1 hour ago",
     read: true,

@@ -28,8 +28,8 @@ export default function FAQSection() {
       a: "Yes! Every project automatically transcribes and generates downloadable subtitle files in SRT, VTT formats, as well as a plain text transcript (TXT) and the rendered media files (MP3/MP4).",
     },
     {
-      q: "How does pricing and credits work?",
-      a: "VoxBridge AI operates on a credits system. Each minute of translated audio costs 1 credit, while video translation (including lip sync) costs 3 credits per minute. The Free Tier includes 15 credits to test all features.",
+      q: "Is VoxBridge AI completely free?",
+      a: "Yes! VoxBridge AI is 100% Free and Unlimited for all translations, voice matching, audio generation, and video processing with zero limits.",
     },
   ];
 

@@ -311,23 +311,23 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Side: Account Summary & Credits usage */}
+        {/* Right Side: Account Summary & Free Unlimited Studio Access */}
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-[20px] border border-[#F2E8DC] shadow-soft space-y-4">
             <h3 className="font-bold text-[#2B1B1B] text-xs uppercase tracking-wider flex items-center justify-between">
-              <span>Studio Credit Monitor</span>
+              <span>Unlimited Free Access</span>
               <Sparkles className="h-4 w-4 text-[#D4AF7A]" />
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-bold text-[#7A6B6B]">
-                <span>Monthly Allocation</span>
-                <span className="text-[#7B1E3A]">15 / 15 Mins</span>
+                <span>Status</span>
+                <span className="text-emerald-700 font-extrabold uppercase tracking-wider bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">100% Free & Unlimited</span>
               </div>
-              <div className="h-2 w-full bg-[#FFF8F0] border border-[#F2E8DC] rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-[#7B1E3A] to-[#A23B5A] w-full rounded-full" />
+              <div className="h-2 w-full bg-emerald-100 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 w-full rounded-full" />
               </div>
               <p className="text-[11px] text-[#7A6B6B] leading-relaxed font-semibold">
-                Monthly credits reset on Aug 29, 2026. Upgrade your tier to get unlimited hours and instant lip-sync rendering.
+                Enjoy unlimited AI translation, voice matching, audio generation, and video processing with zero limits and zero credit costs.
               </p>
             </div>
           </div>

@@ -64,7 +64,7 @@ export default function ProfilePage() {
         </SignOutButton>
       </div>
 
-      {/* Plan & Credits */}
+      {/* Plan & Free Unlimited Access */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div className="bg-white rounded-[20px] border border-[#F2E8DC] p-6 shadow-soft space-y-4">
           <div className="flex items-center gap-2.5 border-b border-[#F2E8DC] pb-3">
@@ -77,23 +77,23 @@ export default function ProfilePage() {
           <div className="space-y-3.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[#7A6B6B]">Current Tier</span>
-              <span className="text-xs font-extrabold text-[#7B1E3A] bg-[#FFF8F0] border border-[#D4AF7A]/40 px-3 py-1 rounded-full uppercase tracking-wider">
-                Pro Studio Tier
+              <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full uppercase tracking-wider">
+                100% Free & Unlimited
               </span>
             </div>
 
             <div className="space-y-1.5 pt-2">
               <div className="flex items-center justify-between text-xs font-bold">
-                <span className="text-[#7A6B6B]">Monthly AI Credits</span>
-                <span className="text-[#2B1B1B]">15 / 15 Used</span>
+                <span className="text-[#7A6B6B]">Plan Access</span>
+                <span className="text-emerald-600 font-extrabold">Unlimited / Forever Free</span>
               </div>
-              <div className="h-2.5 w-full bg-[#FFF8F0] border border-[#F2E8DC] rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-[#7B1E3A] to-[#D4AF7A] w-full rounded-full" />
+              <div className="h-2.5 w-full bg-emerald-100 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 w-full rounded-full" />
               </div>
             </div>
 
             <p className="text-[11px] text-[#7A6B6B] font-semibold leading-relaxed">
-              Unlimited processing using offline Faster-Whisper, Meta NLLB-200, and Piper TTS engines.
+              Full unlimited access to all AI translation, voice cloning, audio generation, and video dubbing features for free.
             </p>
           </div>
         </div>
