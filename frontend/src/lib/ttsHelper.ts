@@ -103,23 +103,15 @@ export async function processTTS(projectId: string): Promise<{ success: boolean;
     translation.ttsStatus = "processing";
     await translation.save();
 
-    let audioUrl = "";
+    let audioUrl = `/api/tts/stream/${projectId}`;
     try {
       const tempBase = path.join(os.tmpdir(), `voxbridge_tts_${projectId}`);
       const mp3Path = await runTTS(translation.translatedText, targetLanguage, tempBase);
       audioUrl = await uploadToCloudinary(mp3Path, `tts_${projectId}`);
       if (fs.existsSync(mp3Path)) try { fs.unlinkSync(mp3Path); } catch {}
     } catch (localErr) {
-      console.warn("⚠️ Local TTS engine unavailable (Vercel serverless), using web TTS stream fallback:", localErr);
-      const langCodes: Record<string, string> = {
-        English: "en", Hindi: "hi", Spanish: "es", French: "fr", German: "de",
-        Italian: "it", Japanese: "ja", Chinese: "zh-CN", Telugu: "te", Tamil: "ta",
-        Kannada: "kn", Malayalam: "ml", Bengali: "bn", Marathi: "mr", Gujarati: "gu",
-        Punjabi: "pa", Urdu: "ur", Russian: "ru", Arabic: "ar"
-      };
-      const code = langCodes[targetLanguage] || "en";
-      const textToSpeak = translation.translatedText.slice(0, 200);
-      audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${code}&client=tw-ob&q=${encodeURIComponent(textToSpeak)}`;
+      console.warn("⚠️ Local TTS engine unavailable (Vercel serverless), using streaming proxy fallback:", localErr);
+      audioUrl = `/api/tts/stream/${projectId}`;
     }
 
     translation.ttsAudioUrl = audioUrl;
@@ -134,24 +126,13 @@ export async function processTTS(projectId: string): Promise<{ success: boolean;
     try {
       await connectToDatabase();
       const translation = await Translation.findOne({ project: projectId });
-      const project = await Project.findById(projectId);
       if (translation) {
-        const targetLanguage = project?.targetLanguage || "English";
-        const langCodes: Record<string, string> = {
-          English: "en", Hindi: "hi", Spanish: "es", French: "fr", German: "de",
-          Italian: "it", Japanese: "ja", Chinese: "zh-CN", Telugu: "te", Tamil: "ta",
-          Kannada: "kn", Malayalam: "ml", Bengali: "bn", Marathi: "mr", Gujarati: "gu",
-          Punjabi: "pa", Urdu: "ur", Russian: "ru", Arabic: "ar"
-        };
-        const code = langCodes[targetLanguage] || "en";
-        const textToSpeak = (translation.translatedText || "VoxBridge audio voice synthesis").slice(0, 200);
-        const fallbackUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${code}&client=tw-ob&q=${encodeURIComponent(textToSpeak)}`;
-
-        translation.ttsAudioUrl = fallbackUrl;
+        const streamUrl = `/api/tts/stream/${projectId}`;
+        translation.ttsAudioUrl = streamUrl;
         translation.ttsStatus = "completed";
         await translation.save();
 
-        return { success: true, ttsAudioUrl: fallbackUrl };
+        return { success: true, ttsAudioUrl: streamUrl };
       }
     } catch (dbErr) {
       console.error("Critical DB update error in processTTS:", dbErr);

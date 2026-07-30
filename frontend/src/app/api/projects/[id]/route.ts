@@ -91,14 +91,7 @@ export async function GET(
         const sampleText = `Speech recording for ${project.name}. Translation and voice synthesis powered by VoxBridge AI.`;
         const translatedText = await translateTextNode(sampleText, tgtLang);
 
-        const langCodes: Record<string, string> = {
-          English: "en", Hindi: "hi", Spanish: "es", French: "fr", German: "de",
-          Italian: "it", Japanese: "ja", Chinese: "zh-CN", Telugu: "te", Tamil: "ta",
-          Kannada: "kn", Malayalam: "ml", Bengali: "bn", Marathi: "mr", Gujarati: "gu",
-          Punjabi: "pa", Urdu: "ur", Russian: "ru", Arabic: "ar"
-        };
-        const code = langCodes[tgtLang] || "en";
-        const ttsAudioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${code}&client=tw-ob&q=${encodeURIComponent(translatedText.slice(0, 200))}`;
+        const ttsAudioUrl = `/api/tts/stream/${projectId}`;
 
         translation = await Translation.create({
           project: projectId,
