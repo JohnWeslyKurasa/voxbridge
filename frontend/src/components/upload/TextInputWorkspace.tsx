@@ -56,32 +56,39 @@ export default function TextInputWorkspace({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-5 rounded-2xl border-2 border-emerald-100 bg-emerald-50/20 p-6">
-      <div className="space-y-1">
-        <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-          <span>📝</span> Text to Voice & Translation
-        </h3>
-        <p className="text-xs text-slate-500">
-          Enter text in any supported source language. We will translate it and generate speech automatically.
-        </p>
+    <form onSubmit={handleSubmit} className="w-full space-y-5 rounded-[20px] border border-[#F2E8DC] bg-white p-6 shadow-soft">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#F2E8DC] pb-4">
+        <div className="space-y-1">
+          <h3 className="text-sm font-bold text-[#2B1B1B] flex items-center gap-2">
+            <span>📝</span> Text to Voice & Translation
+          </h3>
+          <p className="text-xs text-[#7A6B6B] font-semibold">
+            Type or paste text to translate and generate speech automatically.
+          </p>
+        </div>
+        <div className="shrink-0 flex items-center gap-2 bg-[#FFF8F0] border border-[#D4AF7A]/40 px-3.5 py-1.5 rounded-full text-xs font-bold text-[#7B1E3A]">
+          <span>Target:</span>
+          <span className="text-[#2B1B1B] font-extrabold">{targetLanguage}</span>
+        </div>
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 font-bold">
           {error}
         </div>
       )}
 
-      {/* Source Language Picker */}
+      {/* Source Language Selector */}
       <div className="space-y-1.5">
-        <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-          Source Language (Language you are typing in)
+        <label className="text-[10px] font-bold uppercase tracking-wider text-[#7A6B6B]">
+          Source Language (Language of your input text)
         </label>
         <LanguageSearchSelector
           languages={languages}
           value={sourceLanguage}
           onChange={setSourceLanguage}
           disabled={isSubmitting}
+          label=""
         />
       </div>
 
