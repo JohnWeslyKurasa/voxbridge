@@ -149,6 +149,12 @@ export const uploadService = {
       body: JSON.stringify(data),
     });
 
+    // 403 free_trial_expired: return the body as data so caller can show the right message
+    if (res.status === 403) {
+      const body = await res.json().catch(() => ({}));
+      return body; // Contains { error: "free_trial_expired", message, projectsUsed, trialLimit }
+    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || "Failed to save file metadata to database.");

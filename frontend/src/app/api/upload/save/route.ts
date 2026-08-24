@@ -5,7 +5,7 @@ import path from "path";
 import connectToDatabase from "@/lib/mongodb";
 import Project from "@/models/Project";
 import MediaFile from "@/models/MediaFile";
-import User from "@/models/User";
+import User, { FREE_TRIAL_LIMIT } from "@/models/User";
 import Translation from "@/models/Translation";
 import { processTTS } from "@/lib/ttsHelper";
 
@@ -17,6 +17,11 @@ import { processTTS } from "@/lib/ttsHelper";
  * - Returns both original and translated transcripts with timestamps.
  */
 async function translateTextNode(text: string, targetLang: string): Promise<string> {
+  if (!text || !text.trim()) return text;
+  // Skip translation if source and target are same language
+  if (targetLang === "English") {
+    // Still try — source might not be English
+  }
   const langCodes: Record<string, string> = {
     English: "en", Hindi: "hi", Spanish: "es", French: "fr", German: "de",
     Italian: "it", Japanese: "ja", Chinese: "zh-CN", Telugu: "te", Tamil: "ta",
@@ -24,18 +29,48 @@ async function translateTextNode(text: string, targetLang: string): Promise<stri
     Punjabi: "pa", Urdu: "ur", Russian: "ru", Arabic: "ar"
   };
   const code = langCodes[targetLang] || "hi";
+
+  // Primary: Google Translate unofficial free endpoint
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${code}&dt=t&q=${encodeURIComponent(text)}`;
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" }
+    });
     if (res.ok) {
       const data = await res.json();
-      if (data && data[0]) {
-        return data[0].map((item: Array<string | number>) => item[0]).join("");
+      if (Array.isArray(data) && Array.isArray(data[0])) {
+        const translated = data[0]
+          .filter((item: unknown[]) => item && item[0])
+          .map((item: unknown[]) => item[0])
+          .join("");
+        if (translated && translated.trim()) {
+          console.log(`✅ Translation succeeded → ${targetLang}: "${translated.slice(0, 60)}"`);
+          return translated;
+        }
       }
     }
   } catch (err) {
-    console.warn("Node translation fallback warning:", err);
+    console.warn("⚠️ Primary translation warning:", err);
   }
+
+  // Fallback: MyMemory free translation API
+  try {
+    const mmRes = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 500))}&langpair=auto|${code}`,
+      { headers: { "User-Agent": "VoxBridgeAI/2.0" } }
+    );
+    if (mmRes.ok) {
+      const mmData = await mmRes.json();
+      const translated = mmData?.responseData?.translatedText;
+      if (translated && translated.trim() && !translated.toLowerCase().includes("mymemory")) {
+        console.log(`✅ MyMemory translation fallback succeeded → ${targetLang}`);
+        return translated;
+      }
+    }
+  } catch (mmErr) {
+    console.warn("⚠️ MyMemory translation fallback warning:", mmErr);
+  }
+
   return text;
 }
 
@@ -335,9 +370,28 @@ export async function POST(request: Request) {
         clerkId: effectiveClerkId,
         fullName: fullName || "VoxBridge Creator",
         email: primaryEmail || `${effectiveClerkId}@voxbridge.ai`,
-        credits: 9999,
+        credits: FREE_TRIAL_LIMIT,
         plan: "free",
+        projectsUsed: 0,
+        trialExpired: false,
       });
+    }
+
+    // ── FREE TRIAL GATE ────────────────────────────────────────────────────────
+    // Count actual projects for this user (authoritative source of truth)
+    const existingProjectCount = await Project.countDocuments({ owner: dbUser._id });
+    if (dbUser.plan === "free" && existingProjectCount >= FREE_TRIAL_LIMIT) {
+      // Mark trial as expired in DB
+      await User.findByIdAndUpdate(dbUser._id, { trialExpired: true, projectsUsed: existingProjectCount });
+      return NextResponse.json(
+        {
+          error: "free_trial_expired",
+          message: `Your free trial has ended. You've used all ${FREE_TRIAL_LIMIT} free projects. Upgrade to Pro to continue creating unlimited translations.`,
+          projectsUsed: existingProjectCount,
+          trialLimit: FREE_TRIAL_LIMIT,
+        },
+        { status: 403 }
+      );
     }
 
     // 2. Determine input type from mediaType if not explicitly provided
@@ -375,7 +429,14 @@ export async function POST(request: Request) {
     newProject.sourceMedia = newMediaFile._id;
     await newProject.save();
 
-    console.log(`🎙️ Background transcription queued for: ${originalName} → ${targetLanguage}`);
+    // Increment projectsUsed counter on successful project creation
+    const newCount = existingProjectCount + 1;
+    await User.findByIdAndUpdate(dbUser._id, {
+      projectsUsed: newCount,
+      trialExpired: dbUser.plan === "free" && newCount >= FREE_TRIAL_LIMIT,
+    });
+
+    console.log(`🎙️ Background transcription queued for: ${originalName} → ${targetLanguage} (project ${newCount}/${FREE_TRIAL_LIMIT})`);
 
     // 6. Run transcription + TTS synchronously (Vercel Serverless environment safe)
     try {

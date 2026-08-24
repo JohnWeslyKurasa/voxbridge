@@ -144,6 +144,13 @@ export function useUpload(options: UseUploadOptions = {}) {
             preserveVoice,
           });
 
+          // Check for free trial expiry (403 response)
+          if (saveRes.error === "free_trial_expired") {
+            setError(`🔒 Free trial ended — ${saveRes.message || "Upgrade to Pro for unlimited projects."}`);
+            setStatus("error");
+            return;
+          }
+
           setStatus("success");
           setProgress(100);
           

@@ -41,6 +41,15 @@ interface ProjectItem {
   };
 }
 
+interface UserStatus {
+  plan: "free" | "pro" | "enterprise";
+  projectsUsed: number;
+  trialLimit: number;
+  trialExpired: boolean;
+  projectsRemaining: number;
+  isPro: boolean;
+}
+
 /**
  * Dashboard Main Page - Bright Luxury Theme
  */
@@ -50,6 +59,7 @@ export default function DashboardPage() {
   const { user, isLoaded } = useUser();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
+  const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
   
   // Selected transcript parameters displaying original + translation
   const [selectedTranscript, setSelectedTranscript] = useState<{
@@ -84,6 +94,20 @@ export default function DashboardPage() {
     const interval = setInterval(fetchProjects, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch user trial/plan status
+  useEffect(() => {
+    async function fetchUserStatus() {
+      try {
+        const res = await fetch("/api/user/status");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) setUserStatus(data);
+        }
+      } catch {}
+    }
+    fetchUserStatus();
+  }, [projects.length]); // Re-fetch whenever projects change
 
   // Compute dynamic stats from live projects list
   const totalProjects = projects.length;
@@ -141,12 +165,21 @@ export default function DashboardPage() {
             Translate files, clone vocal signatures, transcribe speech timelines, and sync speaker lips in one luxury workspace.
           </p>
           <div className="flex items-center gap-2 pt-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF8F0] border border-[#D4AF7A]/40 px-3 py-1 text-xs font-bold text-[#7B1E3A]">
-              <Award className="w-3.5 h-3.5 text-[#D4AF7A]" />
-              Pro Studio Plan
-            </span>
+            {userStatus?.isPro ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#7B1E3A]/10 to-[#D4AF7A]/10 border border-[#D4AF7A]/40 px-3 py-1 text-xs font-bold text-[#7B1E3A]">
+                <Award className="w-3.5 h-3.5 text-[#D4AF7A]" />
+                Pro Studio Plan
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFF8F0] border border-[#D4AF7A]/40 px-3 py-1 text-xs font-bold text-[#7A6B6B]">
+                <Sparkles className="w-3.5 h-3.5 text-[#D4AF7A]" />
+                Free Trial — {userStatus ? `${userStatus.projectsUsed}/${userStatus.trialLimit} projects used` : "Loading..."}
+              </span>
+            )}
             <span className="text-xs text-[#D4AF7A] font-bold">•</span>
-            <span className="text-xs font-semibold text-[#7A6B6B]">Subscribed since Jul 2026</span>
+            <span className="text-xs font-semibold text-[#7A6B6B]">
+              {userStatus?.isPro ? "Unlimited projects" : `${userStatus?.projectsRemaining ?? "—"} projects remaining`}
+            </span>
           </div>
         </div>
 
@@ -183,6 +216,69 @@ export default function DashboardPage() {
           );
         })}
       </div>
+
+      {/* ── Free Trial Progress Banner (only for free plan users) ───────── */}
+      {userStatus && !userStatus.isPro && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className={`relative overflow-hidden rounded-[20px] border p-5 flex flex-col sm:flex-row sm:items-center gap-4 ${
+            userStatus.trialExpired
+              ? "border-red-200 bg-gradient-to-r from-red-50 to-rose-50"
+              : "border-[#D4AF7A]/40 bg-gradient-to-r from-[#FFF8F0] to-white"
+          }`}
+        >
+          <div className="absolute top-0 right-0 w-[180px] h-[180px] rounded-full bg-[#D4AF7A]/8 blur-[40px] pointer-events-none" />
+
+          <div className="flex-1 space-y-2 relative z-10">
+            <div className="flex items-center gap-2">
+              {userStatus.trialExpired ? (
+                <span className="text-sm font-extrabold text-red-600">🔒 Free Trial Ended</span>
+              ) : (
+                <span className="text-sm font-extrabold text-[#2B1B1B]">
+                  🎯 Free Trial — {userStatus.projectsUsed} of {userStatus.trialLimit} projects used
+                </span>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full h-2.5 rounded-full bg-[#F2E8DC] overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(100, (userStatus.projectsUsed / userStatus.trialLimit) * 100)}%` }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className={`h-full rounded-full ${
+                  userStatus.trialExpired
+                    ? "bg-gradient-to-r from-red-400 to-rose-500"
+                    : userStatus.projectsUsed >= userStatus.trialLimit - 3
+                    ? "bg-gradient-to-r from-amber-400 to-orange-500"
+                    : "bg-gradient-to-r from-[#7B1E3A] to-[#D4AF7A]"
+                }`}
+              />
+            </div>
+
+            <p className="text-[11px] font-semibold text-[#7A6B6B]">
+              {userStatus.trialExpired
+                ? "You've used all your free projects. Upgrade to Pro for unlimited translations, voice cloning, and video dubbing."
+                : `${userStatus.projectsRemaining} project${userStatus.projectsRemaining !== 1 ? "s" : ""} remaining on your free trial.`}
+            </p>
+          </div>
+
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); alert("Contact support to upgrade your plan."); }}
+            className={`shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 active:scale-95 ${
+              userStatus.trialExpired
+                ? "bg-gradient-to-r from-[#7B1E3A] to-[#A23B5A] text-white shadow-md shadow-[#7B1E3A]/25 hover:shadow-lg"
+                : "bg-white border border-[#D4AF7A]/50 text-[#7B1E3A] hover:bg-[#FFF8F0]"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {userStatus.trialExpired ? "Upgrade to Pro" : "Upgrade Plan"}
+          </a>
+        </motion.div>
+      )}
 
       {/* Bottom Main Grid Panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
